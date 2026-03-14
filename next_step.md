@@ -1,745 +1,89 @@
-# Phase 1 — JWT Auth Implementation Checklist for Your FastAPI Project
+# Auth Roadmap — Remaining Work
 
-This checklist is designed for your **current layered architecture**:
-
-- `routes -> services -> repositories -> models/database`
-- existing `User` model
-- existing registration flow
-- existing password hashing utility
-- existing DB session dependency
-
-The goal of this phase is to add:
-
-- login with email + password
-- JWT access token generation
-- token validation
-- current authenticated user extraction
-- protected endpoints
+## Current state
+- [X] JWT utility (`app/utils/tokens.py`)
+- [X] JWT config in `config.py` and `.env`
+- [X] `find_user_by_email` / `find_user_by_id` return `Optional[User]`
+- [X] `LoginRequest` and `TokenResponse` schemas
+- [X] `auth_services.py` — login logic
+- [X] `POST /api/auth/login` — working, tested
+- [X] `get_current_user` dependency (`app/api/dependencies/auth_dependency.py`)
 
 ---
 
-# Phase 1 Goal
+## Step 1 — Protected test endpoint
 
-By the end of this phase, your backend should support this flow:
+Add a temporary route to `auth_routes.py` to verify `get_current_user` works before touching real routes.
 
-1. user registers
-2. user logs in with email + password
-3. server returns JWT access token
-4. client sends token in `Authorization: Bearer <token>`
-5. server validates token
-6. server loads current user from DB
-7. protected endpoints work only for authenticated users
+- [ ] add `GET /api/auth/me` to `auth_routes.py`
+- [ ] inject `current_user: User = Depends(get_current_user)`
+- [ ] return the user's `id` and `email`
 
+**Test it:**
+- [ ] no token → expect 401
+- [ ] invalid/malformed token → expect 401
+- [ ] expired token → expect 401
+- [ ] valid token → expect 200 with user info
 
----
-
-# Step 1 — Define What Auth Needs to Add
-
-Before touching files, be clear about the missing pieces.
-
-## New capabilities you need
-
-- [X] login request schema (not verified yet)
-- [X] token response schema (not yet verified)
-- [X] repository method to find user by email
-- [X] repository method to find user by id
-- [X] JWT utility for token creation and decoding
-- [X] auth service for login logic
-- [X] auth route for login endpoint
-- [ ] dependency that extracts current user from bearer token
-- [ ] one protected test endpoint
-- [ ] protection added to selected real endpoints
-app/schemas/login_request.py
-app/schemas/token_response.py
-
+Do not move on until all four cases pass.
 
 ---
 
-# Step 2 — Extend Configuration for JWT
+## Step 2 — Protect task routes
 
-You already have config for DB settings. Now extend config for auth settings.
+Once the test endpoint is confirmed working, apply the dependency to real routes in `task_routes.py`.
 
-## Decide your JWT settings
+- [ ] protect `GET /api/tasks/get`
+- [ ] protect `POST /api/tasks/create`
+- [ ] protect `POST /api/tasks/complete`
 
-- [X] choose a secret key
-- [X] choose an algorithm
-- [X] choose access token expiration duration
+Each route gets `current_user: User = Depends(get_current_user)` added to its parameters.
 
-## Add these to your config layer conceptually
-
-Your settings should now include something like:
-
-- [X] `JWT_SECRET_KEY`
-- [X] `JWT_ALGORITHM`
-- [X] `ACCESS_TOKEN_EXPIRE_MINUTES`
-
-## Add them to `.env`
-
-- [X] add a secret key entry
-- [X] add algorithm entry
-- [X] add expiration entry
-
-## Verify
-
-- [X] your app can still start after config changes
-- [X] settings are loaded correctly
-- [X] you are not hardcoding secrets in random files
-
-## Important notes
-
-- [X] secret must come from config/environment
-- [X] expiration should be configurable
-- [X] algorithm should be centralized in config
+**Test each:**
+- [ ] request without token → 401
+- [ ] request with valid token → original behavior unchanged
 
 ---
 
-# Step 3 — Add User Lookup Methods in Repository
+## Step 3 — Update test script
 
-Login cannot work unless you can fetch users from DB by email and later by id.
+Extend `test_auth.py` to cover the new protected behavior.
 
-## In `user_repository.py`, conceptually add:
-
-### A method to get user by email
-Purpose:
-- [X] receive email
-- [X] query `users` table
-- [X] return matching user or `None`
-
-### A method to get user by id
-Purpose:
-- [X] receive user id
-- [X] query `users` table
-- [X] return matching user or `None`
-
-## Verify after adding repository methods
-
-- [X] repository still only does DB access
-- [X] repository does not know about JWT
-- [X] repository does not know about HTTP requests
-- [X] repository does not verify passwords
-- [X] repository returns ORM user objects or `None`
-
-## Self-check
-
-- [X] "get by email" is for login
-- [X] "get by id" is for current authenticated user
+- [ ] test `/api/auth/me` with valid token → 200
+- [ ] test `/api/auth/me` with no token → 401
+- [ ] test `/api/auth/me` with bad token → 401
+- [ ] test a task route with valid token → 200
+- [ ] test a task route with no token → 401
 
 ---
 
-# Step 4 — Create Auth Schemas
+## Step 4 — Fix remaining layer violation
 
-Do not reuse registration schemas for login. Authentication is a separate concern.
+`create_user` in `user_repository.py` still raises `HTTPException` directly — that's an HTTP concern leaking into the repo layer.
 
-## Create a dedicated auth schema file
-
-Suggested concept:
-- [X] `auth_schema.py` (created as login_request.py + token_response.py)
-
-## Add a login request schema
-
-Fields should include:
-
-- [X] email
-- [X] password
-
-Do **not** include:
-
-- [ ] name
-- [ ] created_at
-- [ ] password_hash
-- [ ] id
-
-## Add a token response schema
-
-Fields should include at least:
-
-- [X] `access_token`
-- [X] `token_type`
-
-Optional later:
-- [ ] user info
-- [ ] expiration info
-
-But keep Phase 1 minimal.
-
-## Verify
-
-- [X] login request schema is only for login input
-- [X] token response schema is only for login output
-- [X] auth schemas are not mixed into user registration schemas
+- [ ] change `create_user` to raise a plain `ValueError` (or return `None`) on duplicate email
+- [ ] move the 409 `HTTPException` into `user_services.py` or `user_routes.py`
 
 ---
 
-# Step 5 — Design the JWT Payload
+## Step 5 — Security sanity check
 
-Before creating the JWT utility, decide what the token will contain.
+Before calling Phase 1 done:
 
-## Decide what identity claim the token should carry
-
-Recommended:
-- [X] user id
-
-Alternative:
-- [ ] email
-
-Use one stable identity field consistently.
-
-## Decide token expiration behavior
-
-- [X] token should expire after a fixed duration
-- [X] expiration should be added inside token claims
-- [X] expiration should use your configured minutes value
-
-## Decide the minimum token contents
-
-Your token should conceptually contain:
-
-- [X] user identity claim
-- [X] expiration claim
-
-Avoid adding unnecessary data for Phase 1.
-
-## Verify
-
-- [X] token identifies the user clearly
-- [X] token does not store sensitive data like plaintext password
-- [X] token data is minimal and purposeful
-
----
-
-# Step 6 — Create the JWT Utility Module
-
-Now build a utility whose only job is token mechanics.
-
-## Create a new file
-
-Suggested concept:
-- [X] `app/utils/security/jwt_handler.py` (created as app/utils/tokens.py)
-
-## This utility should conceptually provide:
-
-### Token creation function
-Responsibilities:
-- [X] receive user identity data
-- [X] attach expiration
-- [X] sign token using secret + algorithm
-- [X] return token string
-
-### Token decode/validate function
-Responsibilities:
-- [X] receive token string
-- [X] decode token using secret + algorithm
-- [X] validate signature
-- [X] validate expiration
-- [X] return decoded payload or fail
-
-## This utility should **not** do these things
-
-- [X] do not query the DB
-- [X] do not read request headers directly
-- [X] do not know anything about FastAPI routes
-- [X] do not decide business rules like login success
-
-## Verify
-
-- [X] JWT utility is reusable
-- [X] JWT utility depends on config, not hardcoded values
-- [X] JWT utility is focused only on token creation/decoding
-
----
-
-# Step 7 — Create the Auth Service
-
-This service will contain the business logic for login.
-
-## Create a new service file
-
-Suggested concept:
-- [X] `app/services/auth_services.py`
-
-## Add a login/authenticate flow
-
-The auth service should perform these steps in order:
-
-1. [X] receive login credentials
-2. [X] use repository to fetch user by email
-3. [X] if no user exists, reject login
-4. [X] compare submitted password against stored password hash
-5. [X] if password is wrong, reject login
-6. [X] if password is correct, create JWT
-7. [X] return token response object
-
-## Important boundaries
-
-The auth service **should**:
-- [X] use repository for user lookup
-- [X] use password utility for password verification
-- [X] use JWT utility for token generation
-- [X] raise or return proper failure when login is invalid
-
-The auth service **should not**:
-- [X] directly parse HTTP headers
-- [X] directly manage route definitions
-- [X] directly perform raw SQL
-
-## Verify
-
-- [X] login logic is centralized in one service
-- [X] password verification uses existing hash utility
-- [X] service returns token response, not raw DB data
-- [X] incorrect credentials are handled cleanly
-
----
-
-# Step 8 — Create Auth Routes
-
-Now expose authentication through dedicated routes.
-
-## Create a new route file
-
-Suggested concept:
-- [X] `app/api/routes/auth_routes.py`
-
-## Add a login endpoint
-
-This route should conceptually:
-
-- [X] accept login request body
-- [X] receive DB session using dependency injection
-- [X] call auth service
-- [X] return token response
-
-## Keep the route thin
-
-The route should **not**:
-- [X] query users directly
-- [X] compare passwords directly
-- [X] create token manually
-- [X] contain business logic
-
-It should only:
-- [X] receive request
-- [X] call service
-- [X] return response
-
-## Register the new router in `main.py`
-
-- [X] import auth router
-- [X] include it in the FastAPI app
-
-## Verify
-
-- [X] app starts after adding auth router
-- [X] login endpoint appears in Swagger
-- [X] login route is reachable
-
----
-
-# Step 9 — Test Login Before Protected Routes
-
-Do not move on until login works.
-
-## Test sequence
-
-### Test A — register a user
-- [X] create a test user through your registration route
-
-### Test B — login with correct credentials
-- [X] send correct email/password
-- [X] confirm response is success
-- [X] confirm token is returned
-
-### Test C — login with wrong password
-- [X] confirm login fails
-
-### Test D — login with non-existent email
-- [X] confirm login fails
-
-## Verify
-
-- [X] token is returned only when credentials are valid
-- [X] wrong credentials do not expose whether password or email was specifically wrong unless you intentionally design it that way
-- [X] registration + login both work independently
-
----
-
-# Step 10 — Add Current User Dependency
-
-Login alone is not enough. Protected routes need a reusable authentication dependency.
-
-## Create a dependency concept
-
-Suggested location:
-- [ ] auth dependency module
-- [ ] or keep temporarily in auth service layer if you prefer, but a separate dependency file is cleaner
-
-## This dependency should perform these steps
-
-1. [ ] read `Authorization` header
-2. [ ] verify it is a bearer token
-3. [ ] extract token string
-4. [ ] decode token using JWT utility
-5. [ ] extract user identity from token payload
-6. [ ] fetch user from DB using repository
-7. [ ] return authenticated user object
-
-## This dependency should fail if:
-
-- [ ] no authorization header exists
-- [ ] header format is wrong
-- [ ] token is invalid
-- [ ] token is expired
-- [ ] token payload is missing user identity
-- [ ] user no longer exists in DB
-
-## Verify
-
-- [ ] dependency returns a real `User` object when token is valid
-- [ ] dependency blocks access when token is missing or invalid
-- [ ] dependency does not contain unrelated business logic
-
----
-
-# Step 11 — Create a Protected Test Endpoint
-
-Before securing your real task routes, create a simple test endpoint.
-
-## Add one protected route
-
-Purpose:
-- [ ] verify the current-user dependency works end-to-end
-
-This route should conceptually:
-- [ ] require current authenticated user
-- [ ] return simple success info
-- [ ] optionally return authenticated user identity
-
-## Why this matters
-
-It lets you isolate auth testing from the rest of your app.
-
-If this endpoint works, then all of these are working:
-
-- [ ] bearer header extraction
-- [ ] token decode
-- [ ] token validation
-- [ ] user lookup by token identity
-- [ ] protected access control
-
-## Verify
-
-### Request without token
-- [ ] should fail
-
-### Request with bad token
-- [ ] should fail
-
-### Request with valid token
-- [ ] should succeed
-
-Do not continue until this is fully working.
-
----
-
-# Step 12 — Protect Real Endpoints
-
-Once the protected test endpoint works, start protecting actual feature routes.
-
-## Decide which routes stay public
-
-Usually these remain public:
-- [ ] register
-- [ ] login
-
-## Decide which routes become protected
-
-For your current project, likely:
-- [ ] list tasks
-- [ ] create task
-- [ ] complete task
-
-## Apply the current-user dependency to these routes
-
-Each protected route should now require authentication before business logic runs.
-
-## Verify
-
-### Without token
-- [ ] protected task routes fail
-
-### With valid token
-- [ ] protected task routes succeed
-
-### With invalid token
-- [ ] protected task routes fail
-
----
-
-# Step 13 — Decide Whether Task Access Uses Current User Yet
-
-This is an important design checkpoint.
-
-At minimum for Phase 1:
-- [ ] protect task routes so only authenticated users can access them
-
-Optional improvement during Phase 1:
-- [ ] tie task operations to the currently authenticated user
-
-Examples of this improvement:
-- [ ] only create tasks for the logged-in user
-- [ ] only list tasks belonging to the logged-in user
-- [ ] only complete tasks owned by the logged-in user
-
-If you do not implement ownership rules yet, that is okay for early Phase 1, but you should decide consciously.
-
-## Verify your decision
-
-Choose one:
-- [ ] "Phase 1 only adds authentication; permissions come later"
-- [ ] "Phase 1 adds basic authentication + user-task ownership enforcement"
-
-Write this decision down before coding further.
-
----
-
-# Step 14 — Validate Layer Responsibilities
-
-At this point, pause and inspect architecture discipline.
-
-## Routes checklist
-
-Routes should:
-- [ ] accept request bodies
-- [ ] inject dependencies
-- [ ] call services
-- [ ] return responses
-
-Routes should not:
-- [ ] query DB directly
-- [ ] verify passwords directly
-- [ ] create/decode JWT directly
-
-## Services checklist
-
-Services should:
-- [ ] implement login logic
-- [ ] orchestrate repository + password + JWT utility
-- [ ] handle auth-related business decisions
-
-Services should not:
-- [ ] define HTTP routes
-- [ ] perform raw DB queries directly if repository exists
-
-## Repositories checklist
-
-Repositories should:
-- [ ] fetch user by email
-- [ ] fetch user by id
-
-Repositories should not:
-- [ ] know about JWT
-- [ ] know about headers
-- [ ] verify passwords
-
-## JWT utility checklist
-
-JWT utility should:
-- [ ] create token
-- [ ] decode token
-- [ ] validate token structure/expiration
-
-JWT utility should not:
-- [ ] query DB
-- [ ] contain route logic
-
-If any layer is doing too much, refactor before continuing.
-
----
-
-# Step 15 — Full End-to-End Auth Test Checklist
-
-Run these tests in order.
-
-## Registration tests
-- [ ] register user successfully
-- [ ] duplicate email is handled correctly if you support uniqueness checks
-
-## Login tests
-- [ ] valid email + valid password returns token
-- [ ] valid email + wrong password fails
-- [ ] invalid email fails
-- [ ] response shape matches token schema
-
-## Token tests
-- [ ] token is returned as string
-- [ ] token type is bearer
-- [ ] token can be used in Swagger authorize flow if you choose to test there
-
-## Protected route tests
-- [ ] no token -> unauthorized
-- [ ] malformed header -> unauthorized
-- [ ] invalid token -> unauthorized
-- [ ] valid token -> success
-
-## Current user tests
-- [ ] token correctly maps back to DB user
-- [ ] deleted/nonexistent user referenced by token is rejected
-
-## Regression tests
-- [ ] registration still works after auth changes
-- [ ] existing routes still import correctly
-- [ ] app still starts cleanly
-
----
-
-# Step 16 — Clean Up Naming and Organization
-
-Before ending Phase 1, tidy up any naming issues.
-
-## Recommended route grouping
-
-- [ ] registration belongs under auth if you want cleaner API grouping
-- [ ] login belongs under auth
-- [ ] current-user endpoint belongs under auth
-
-## Recommended file grouping
-
-- [ ] password hashing and JWT helpers belong under security utilities
-- [ ] login schemas belong in auth schema module
-- [ ] login business logic belongs in auth service module
-
-## Verify
-
-- [ ] authentication concepts are not scattered randomly across many unrelated files
-- [ ] auth logic is easy to find by folder and filename
-
----
-
-# Step 17 — Swagger / API Docs Verification
-
-Since you are learning, this is important.
-
-## Check in Swagger docs
-
-- [ ] login endpoint appears correctly
-- [ ] protected endpoint appears correctly
-- [ ] request body schemas display correctly
-- [ ] response schema displays correctly
-
-## If you configure bearer auth in docs later
-- [ ] Swagger authorize supports token entry
-- [ ] protected endpoints can be tested from docs
-
-This is optional for now, but useful.
-
----
-
-# Step 18 — Security Sanity Checklist
-
-Before declaring Phase 1 done, verify these basic security principles.
-
-- [ ] plaintext password is never stored
-- [ ] plaintext password is never returned in response
-- [ ] JWT secret is not hardcoded in route/service files
-- [ ] expired tokens are rejected
+- [ ] plaintext password never stored or returned
+- [ ] JWT secret comes from `.env`, not hardcoded anywhere
+- [ ] expired tokens are rejected (verify via test or manual check)
 - [ ] invalid tokens are rejected
-- [ ] protected routes do not allow anonymous access
-- [ ] auth failures return proper unauthorized responses
-- [ ] token payload does not include sensitive information
+- [ ] all protected routes return 401 without a valid token
+- [ ] token payload contains only `sub`, `type`, `iat`, `exp` — no sensitive data
 
 ---
 
-# Step 19 — Definition of Done for Phase 1
-
-Phase 1 is complete only if **all** of these are true:
+## Phase 1 is done when
 
 - [ ] user can register
-- [ ] user can log in with email/password
-- [ ] successful login returns JWT access token
-- [ ] you have a reusable current-user dependency
-- [ ] at least one protected endpoint works
-- [ ] protected endpoints fail without valid bearer token
-- [ ] selected real endpoints are protected
-- [ ] config contains centralized JWT settings
-- [ ] repository supports user lookup by email and by id
-- [ ] auth logic is cleanly separated into proper layers
-
-If one of these is missing, Phase 1 is not fully complete.
-
----
-
-# Step 20 — Suggested Build Order Summary
-
-Follow this exact order:
-
-1. [X] extend config for JWT settings
-2. [X] update `.env`
-3. [X] add repository method: get user by email
-4. [X] add repository method: get user by id
-5. [X] create auth schemas
-6. [X] create JWT utility
-7. [X] create auth service
-8. [X] create login route
-9. [X] register auth router in app
-10. [X] test registration + login
-11. [ ] create current-user dependency
-12. [ ] create one protected test endpoint
-13. [ ] test valid/invalid/missing token behavior
-14. [ ] protect real task endpoints
-15. [ ] run full end-to-end auth verification
-16. [ ] clean up structure and naming
-
----
-
-# Common Mistakes to Avoid
-
-- [ ] putting login logic inside the route
-- [ ] putting JWT logic inside repository
-- [ ] hardcoding secret in multiple places
-- [ ] skipping "get user by id" and trying to use token alone as the full user object
-- [ ] protecting all endpoints before testing one protected endpoint first
-- [ ] confusing authentication with authorization
-- [ ] trying to add roles/permissions before basic JWT auth works
-- [ ] returning full user ORM objects from login when all you need is token response
-- [ ] mixing registration schema and login schema into one object
-
----
-
-# Final Result You Should Have
-
-At the end of this phase, your project should conceptually include:
-
-## Existing
-- [ ] user model
-- [ ] registration route
-- [ ] password hashing
-- [ ] DB session dependency
-
-## New
-- [ ] auth config values
-- [ ] login request schema
-- [ ] token response schema
-- [ ] user lookup by email
-- [ ] user lookup by id
-- [ ] JWT utility
-- [ ] auth service
-- [ ] login route
-- [ ] current-user dependency
-- [ ] protected test endpoint
-- [ ] protected task endpoints
-
----
-
-# After Phase 1
-
-Only after this phase is stable should you move to the next major feature area:
-
-- boards
-- lists
-- cards
-- roles
-- activity feed
-
-Do **not** start boards/lists/cards until JWT auth is working cleanly.
-
----
+- [ ] user can login and receive a JWT
+- [ ] `get_current_user` dependency works correctly
+- [ ] `/api/auth/me` protected endpoint works
+- [ ] all three task routes are protected
+- [ ] layer responsibilities are clean (no HTTP concerns in repo layer)

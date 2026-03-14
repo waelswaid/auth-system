@@ -99,7 +99,7 @@ class JWTUtility:
 
     # public decode and signature verification method
     def decode_access_token(self, token: str) -> Dict[str, Any]:
-        payload = self.decode_token(token)
+        payload = self._decode_token(token)
         if payload.get("type") != "access":
             raise ValueError("Invalid token type: expected access token")
         return payload
@@ -107,7 +107,7 @@ class JWTUtility:
 
     # public decode and signature verification method
     def decode_refresh_token(self, token: str) -> Dict[str, Any]:
-        payload = self.decode_token(token)
+        payload = self._decode_token(token)
         if payload.get("type") != "refresh":
             raise ValueError("Invalid token type: expected refresh token")
         return payload

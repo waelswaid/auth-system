@@ -44,8 +44,8 @@ Before touching files, be clear about the missing pieces.
 - [X] repository method to find user by email
 - [X] repository method to find user by id
 - [X] JWT utility for token creation and decoding
-- [ ] auth service for login logic
-- [ ] auth route for login endpoint
+- [X] auth service for login logic
+- [X] auth route for login endpoint
 - [ ] dependency that extracts current user from bearer token
 - [ ] one protected test endpoint
 - [ ] protection added to selected real endpoints
@@ -61,35 +61,35 @@ You already have config for DB settings. Now extend config for auth settings.
 
 ## Decide your JWT settings
 
-- [ ] choose a secret key
-- [ ] choose an algorithm
-- [ ] choose access token expiration duration
+- [X] choose a secret key
+- [X] choose an algorithm
+- [X] choose access token expiration duration
 
 ## Add these to your config layer conceptually
 
 Your settings should now include something like:
 
-- [ ] `JWT_SECRET_KEY`
-- [ ] `JWT_ALGORITHM`
-- [ ] `ACCESS_TOKEN_EXPIRE_MINUTES`
+- [X] `JWT_SECRET_KEY`
+- [X] `JWT_ALGORITHM`
+- [X] `ACCESS_TOKEN_EXPIRE_MINUTES`
 
 ## Add them to `.env`
 
-- [ ] add a secret key entry
-- [ ] add algorithm entry
-- [ ] add expiration entry
+- [X] add a secret key entry
+- [X] add algorithm entry
+- [X] add expiration entry
 
 ## Verify
 
-- [ ] your app can still start after config changes
-- [ ] settings are loaded correctly
-- [ ] you are not hardcoding secrets in random files
+- [X] your app can still start after config changes
+- [X] settings are loaded correctly
+- [X] you are not hardcoding secrets in random files
 
 ## Important notes
 
-- [ ] secret must come from config/environment
-- [ ] expiration should be configurable
-- [ ] algorithm should be centralized in config
+- [X] secret must come from config/environment
+- [X] expiration should be configurable
+- [X] algorithm should be centralized in config
 
 ---
 
@@ -101,28 +101,28 @@ Login cannot work unless you can fetch users from DB by email and later by id.
 
 ### A method to get user by email
 Purpose:
-- [ ] receive email
-- [ ] query `users` table
-- [ ] return matching user or `None`
+- [X] receive email
+- [X] query `users` table
+- [X] return matching user or `None`
 
 ### A method to get user by id
 Purpose:
-- [ ] receive user id
-- [ ] query `users` table
-- [ ] return matching user or `None`
+- [X] receive user id
+- [X] query `users` table
+- [X] return matching user or `None`
 
 ## Verify after adding repository methods
 
-- [ ] repository still only does DB access
-- [ ] repository does not know about JWT
-- [ ] repository does not know about HTTP requests
-- [ ] repository does not verify passwords
-- [ ] repository returns ORM user objects or `None`
+- [X] repository still only does DB access
+- [X] repository does not know about JWT
+- [X] repository does not know about HTTP requests
+- [X] repository does not verify passwords
+- [X] repository returns ORM user objects or `None`
 
 ## Self-check
 
-- [ ] "get by email" is for login
-- [ ] "get by id" is for current authenticated user
+- [X] "get by email" is for login
+- [X] "get by id" is for current authenticated user
 
 ---
 
@@ -133,14 +133,14 @@ Do not reuse registration schemas for login. Authentication is a separate concer
 ## Create a dedicated auth schema file
 
 Suggested concept:
-- [ ] `auth_schema.py`
+- [X] `auth_schema.py` (created as login_request.py + token_response.py)
 
 ## Add a login request schema
 
 Fields should include:
 
-- [ ] email
-- [ ] password
+- [X] email
+- [X] password
 
 Do **not** include:
 
@@ -153,8 +153,8 @@ Do **not** include:
 
 Fields should include at least:
 
-- [ ] `access_token`
-- [ ] `token_type`
+- [X] `access_token`
+- [X] `token_type`
 
 Optional later:
 - [ ] user info
@@ -164,9 +164,9 @@ But keep Phase 1 minimal.
 
 ## Verify
 
-- [ ] login request schema is only for login input
-- [ ] token response schema is only for login output
-- [ ] auth schemas are not mixed into user registration schemas
+- [X] login request schema is only for login input
+- [X] token response schema is only for login output
+- [X] auth schemas are not mixed into user registration schemas
 
 ---
 
@@ -177,7 +177,7 @@ Before creating the JWT utility, decide what the token will contain.
 ## Decide what identity claim the token should carry
 
 Recommended:
-- [ ] user id
+- [X] user id
 
 Alternative:
 - [ ] email
@@ -186,24 +186,24 @@ Use one stable identity field consistently.
 
 ## Decide token expiration behavior
 
-- [ ] token should expire after a fixed duration
-- [ ] expiration should be added inside token claims
-- [ ] expiration should use your configured minutes value
+- [X] token should expire after a fixed duration
+- [X] expiration should be added inside token claims
+- [X] expiration should use your configured minutes value
 
 ## Decide the minimum token contents
 
 Your token should conceptually contain:
 
-- [ ] user identity claim
-- [ ] expiration claim
+- [X] user identity claim
+- [X] expiration claim
 
 Avoid adding unnecessary data for Phase 1.
 
 ## Verify
 
-- [ ] token identifies the user clearly
-- [ ] token does not store sensitive data like plaintext password
-- [ ] token data is minimal and purposeful
+- [X] token identifies the user clearly
+- [X] token does not store sensitive data like plaintext password
+- [X] token data is minimal and purposeful
 
 ---
 
@@ -214,37 +214,37 @@ Now build a utility whose only job is token mechanics.
 ## Create a new file
 
 Suggested concept:
-- [ ] `app/utils/security/jwt_handler.py`
+- [X] `app/utils/security/jwt_handler.py` (created as app/utils/tokens.py)
 
 ## This utility should conceptually provide:
 
 ### Token creation function
 Responsibilities:
-- [ ] receive user identity data
-- [ ] attach expiration
-- [ ] sign token using secret + algorithm
-- [ ] return token string
+- [X] receive user identity data
+- [X] attach expiration
+- [X] sign token using secret + algorithm
+- [X] return token string
 
 ### Token decode/validate function
 Responsibilities:
-- [ ] receive token string
-- [ ] decode token using secret + algorithm
-- [ ] validate signature
-- [ ] validate expiration
-- [ ] return decoded payload or fail
+- [X] receive token string
+- [X] decode token using secret + algorithm
+- [X] validate signature
+- [X] validate expiration
+- [X] return decoded payload or fail
 
 ## This utility should **not** do these things
 
-- [ ] do not query the DB
-- [ ] do not read request headers directly
-- [ ] do not know anything about FastAPI routes
-- [ ] do not decide business rules like login success
+- [X] do not query the DB
+- [X] do not read request headers directly
+- [X] do not know anything about FastAPI routes
+- [X] do not decide business rules like login success
 
 ## Verify
 
-- [ ] JWT utility is reusable
-- [ ] JWT utility depends on config, not hardcoded values
-- [ ] JWT utility is focused only on token creation/decoding
+- [X] JWT utility is reusable
+- [X] JWT utility depends on config, not hardcoded values
+- [X] JWT utility is focused only on token creation/decoding
 
 ---
 
@@ -255,39 +255,39 @@ This service will contain the business logic for login.
 ## Create a new service file
 
 Suggested concept:
-- [ ] `app/services/auth_services.py`
+- [X] `app/services/auth_services.py`
 
 ## Add a login/authenticate flow
 
 The auth service should perform these steps in order:
 
-1. [ ] receive login credentials
-2. [ ] use repository to fetch user by email
-3. [ ] if no user exists, reject login
-4. [ ] compare submitted password against stored password hash
-5. [ ] if password is wrong, reject login
-6. [ ] if password is correct, create JWT
-7. [ ] return token response object
+1. [X] receive login credentials
+2. [X] use repository to fetch user by email
+3. [X] if no user exists, reject login
+4. [X] compare submitted password against stored password hash
+5. [X] if password is wrong, reject login
+6. [X] if password is correct, create JWT
+7. [X] return token response object
 
 ## Important boundaries
 
 The auth service **should**:
-- [ ] use repository for user lookup
-- [ ] use password utility for password verification
-- [ ] use JWT utility for token generation
-- [ ] raise or return proper failure when login is invalid
+- [X] use repository for user lookup
+- [X] use password utility for password verification
+- [X] use JWT utility for token generation
+- [X] raise or return proper failure when login is invalid
 
 The auth service **should not**:
-- [ ] directly parse HTTP headers
-- [ ] directly manage route definitions
-- [ ] directly perform raw SQL
+- [X] directly parse HTTP headers
+- [X] directly manage route definitions
+- [X] directly perform raw SQL
 
 ## Verify
 
-- [ ] login logic is centralized in one service
-- [ ] password verification uses existing hash utility
-- [ ] service returns token response, not raw DB data
-- [ ] incorrect credentials are handled cleanly
+- [X] login logic is centralized in one service
+- [X] password verification uses existing hash utility
+- [X] service returns token response, not raw DB data
+- [X] incorrect credentials are handled cleanly
 
 ---
 
@@ -298,40 +298,40 @@ Now expose authentication through dedicated routes.
 ## Create a new route file
 
 Suggested concept:
-- [ ] `app/api/routes/auth_routes.py`
+- [X] `app/api/routes/auth_routes.py`
 
 ## Add a login endpoint
 
 This route should conceptually:
 
-- [ ] accept login request body
-- [ ] receive DB session using dependency injection
-- [ ] call auth service
-- [ ] return token response
+- [X] accept login request body
+- [X] receive DB session using dependency injection
+- [X] call auth service
+- [X] return token response
 
 ## Keep the route thin
 
 The route should **not**:
-- [ ] query users directly
-- [ ] compare passwords directly
-- [ ] create token manually
-- [ ] contain business logic
+- [X] query users directly
+- [X] compare passwords directly
+- [X] create token manually
+- [X] contain business logic
 
 It should only:
-- [ ] receive request
-- [ ] call service
-- [ ] return response
+- [X] receive request
+- [X] call service
+- [X] return response
 
 ## Register the new router in `main.py`
 
-- [ ] import auth router
-- [ ] include it in the FastAPI app
+- [X] import auth router
+- [X] include it in the FastAPI app
 
 ## Verify
 
-- [ ] app starts after adding auth router
-- [ ] login endpoint appears in Swagger
-- [ ] login route is reachable
+- [X] app starts after adding auth router
+- [X] login endpoint appears in Swagger
+- [X] login route is reachable
 
 ---
 
@@ -342,24 +342,24 @@ Do not move on until login works.
 ## Test sequence
 
 ### Test A — register a user
-- [ ] create a test user through your registration route
+- [X] create a test user through your registration route
 
 ### Test B — login with correct credentials
-- [ ] send correct email/password
-- [ ] confirm response is success
-- [ ] confirm token is returned
+- [X] send correct email/password
+- [X] confirm response is success
+- [X] confirm token is returned
 
 ### Test C — login with wrong password
-- [ ] confirm login fails
+- [X] confirm login fails
 
 ### Test D — login with non-existent email
-- [ ] confirm login fails
+- [X] confirm login fails
 
 ## Verify
 
-- [ ] token is returned only when credentials are valid
-- [ ] wrong credentials do not expose whether password or email was specifically wrong unless you intentionally design it that way
-- [ ] registration + login both work independently
+- [X] token is returned only when credentials are valid
+- [X] wrong credentials do not expose whether password or email was specifically wrong unless you intentionally design it that way
+- [X] registration + login both work independently
 
 ---
 
@@ -672,16 +672,16 @@ If one of these is missing, Phase 1 is not fully complete.
 
 Follow this exact order:
 
-1. [ ] extend config for JWT settings
-2. [ ] update `.env`
-3. [ ] add repository method: get user by email
-4. [ ] add repository method: get user by id
-5. [ ] create auth schemas
-6. [ ] create JWT utility
-7. [ ] create auth service
-8. [ ] create login route
-9. [ ] register auth router in app
-10. [ ] test registration + login
+1. [X] extend config for JWT settings
+2. [X] update `.env`
+3. [X] add repository method: get user by email
+4. [X] add repository method: get user by id
+5. [X] create auth schemas
+6. [X] create JWT utility
+7. [X] create auth service
+8. [X] create login route
+9. [X] register auth router in app
+10. [X] test registration + login
 11. [ ] create current-user dependency
 12. [ ] create one protected test endpoint
 13. [ ] test valid/invalid/missing token behavior

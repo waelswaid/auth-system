@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, String, text
 from sqlalchemy.dialects.postgresql import UUID
@@ -28,4 +29,9 @@ class User(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=text("now()"),
+    )
+    password_reset_jti: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    password_changed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )

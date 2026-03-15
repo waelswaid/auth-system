@@ -3,7 +3,7 @@ from app.core.config import settings
 
 
 def send_password_reset_email(to_email: str, reset_token: str) -> None:
-    reset_link = f"{settings.APP_BASE_URL}/api/auth/reset-password?token={reset_token}"
+    reset_link = f"{settings.APP_BASE_URL}/reset-password?token={reset_token}"
 
     response = requests.post(
         f"https://api.mailgun.net/v3/{settings.MAILGUN_DOMAIN}/messages",
@@ -25,7 +25,7 @@ def send_password_reset_email(to_email: str, reset_token: str) -> None:
 
 
 def send_verification_email(to_email: str, verification_token: str) -> None:
-    verification_link = f"{settings.APP_BASE_URL}/api/auth/verify-email?token={verification_token}"
+    verification_link = f"{settings.APP_BASE_URL}/verify-email?token={verification_token}"
 
     response = requests.post(
         f"https://api.mailgun.net/v3/{settings.MAILGUN_DOMAIN}/messages",

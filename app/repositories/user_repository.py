@@ -1,6 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
+from datetime import datetime, timezone
 import uuid
 from app.models.user import User
 from app.schemas.users_schema import UserCreate, UserRead
@@ -34,9 +35,11 @@ def find_user_by_id(db: Session, id_in: uuid.UUID) -> Optional[User]:
     return db.query(User).filter(User.id == id_in).first()
 
 
-# update a user's password hash
+# update a user's password hash, record the time of change, and clear any pending reset token
 def update_password(db: Session, user: User, new_hash: str) -> None:
     user.password_hash = new_hash
+    user.password_changed_at = datetime.now(timezone.utc)
+    user.password_reset_jti = None
     db.commit()
 
 
@@ -44,5 +47,12 @@ def update_password(db: Session, user: User, new_hash: str) -> None:
 def verify_user(db: Session, user: User) -> None:
     user.is_verified = True
     db.commit()
+
+
+# store the JTI of the most recently issued password reset token
+def set_password_reset_jti(db: Session, user: User, jti: str) -> None:
+    user.password_reset_jti = jti
+    db.commit()
+
 
 

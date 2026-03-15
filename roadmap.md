@@ -9,7 +9,7 @@ Features needed to make this a fully reliable authentication and authorization s
 - [X] **Refresh token endpoint** — `POST /api/auth/refresh`: accepts a refresh token, returns a new access token. Logic exists in `JWTUtility` but no route is wired up.
 - [X] **Logout / token revocation** — maintain a server-side blacklist (e.g. Redis or DB table) of invalidated tokens so stolen tokens can be revoked before expiry.
 - [X] **Password reset** — `POST /api/auth/forgot-password` sends a reset link; `POST /api/auth/reset-password` validates a short-lived signed token and updates the password hash.
-- [ ] **Email verification** — send a verification link on signup; block login until the email is confirmed.
+- [X] **Email verification** — send a verification link on signup; block login until the email is confirmed.
 
 ---
 

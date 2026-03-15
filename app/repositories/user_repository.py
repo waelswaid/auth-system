@@ -34,12 +34,17 @@ def find_user_by_email(db: Session, email_in: str) -> Optional[User]:
 def find_user_by_id(db: Session, id_in: uuid.UUID) -> Optional[User]:
     return db.query(User).filter(User.id == id_in).first()
 
+# find user by id with row-level lock (SELECT ... FOR UPDATE)
+def find_user_by_id_for_update(db: Session, id_in: uuid.UUID) -> Optional[User]:
+    return db.query(User).filter(User.id == id_in).with_for_update().first()
+
 
 # update a user's password hash, record the time of change, and clear any pending reset token
 def update_password(db: Session, user: User, new_hash: str) -> None:
     user.password_hash = new_hash
     user.password_changed_at = datetime.now(timezone.utc)
     user.password_reset_jti = None
+    user.password_reset_jti_expires_at = None
     db.commit()
 
 
@@ -49,9 +54,10 @@ def verify_user(db: Session, user: User) -> None:
     db.commit()
 
 
-# store the JTI of the most recently issued password reset token
-def set_password_reset_jti(db: Session, user: User, jti: str) -> None:
+# store the JTI and expiration of the most recently issued password reset token
+def set_password_reset_jti(db: Session, user: User, jti: str, expires_at: datetime) -> None:
     user.password_reset_jti = jti
+    user.password_reset_jti_expires_at = expires_at
     db.commit()
 
 

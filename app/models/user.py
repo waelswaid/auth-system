@@ -31,6 +31,10 @@ class User(Base):
         server_default=text("now()"),
     )
     password_reset_jti: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    password_reset_jti_expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     password_changed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

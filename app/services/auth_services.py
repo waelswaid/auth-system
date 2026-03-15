@@ -1,4 +1,4 @@
-from app.repositories.user_repository import find_user_by_email, find_user_by_id, update_password, verify_user, set_password_reset_jti
+from app.repositories.user_repository import find_user_by_email, find_user_by_id, find_user_by_id_for_update, update_password, verify_user, set_password_reset_jti
 from app.repositories.token_blacklist_repository import add_to_blacklist, is_blacklisted
 from app.utils.security.password_hash import verify_password, hash_password
 from app.utils.tokens import JWTConfig, JWTUtility
@@ -11,7 +11,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone, timedelta
 import uuid
+import logging
 import requests as http_requests
+
+logger = logging.getLogger(__name__)
 
 
 jwt_config = JWTConfig(
@@ -108,22 +111,22 @@ def request_password_reset(db: Session, email: str) -> None:
 
     # generate the token before touching DB state
     reset_token = jwt_gen.create_password_reset_token(str(user.id))
-    new_jti = jwt_gen.decode_password_reset_token(reset_token).get("jti")
+    new_payload = jwt_gen.decode_password_reset_token(reset_token)
+    new_jti = new_payload.get("jti")
+    new_expires_at = datetime.fromtimestamp(new_payload["exp"], tz=timezone.utc)
 
     # attempt email first — only commit state changes if it succeeds
     try:
         send_password_reset_email(user.email, reset_token)
-    except http_requests.RequestException:
-        return
+    except http_requests.RequestException as exc:
+        logger.error("Failed to send password reset email: %s", exc)
+        raise HTTPException(status_code=503, detail="Unable to send email. Please try again later.")
 
     # blacklist the previous pending reset token if one exists
-    if user.password_reset_jti is not None:
-        old_expires_at = datetime.now(timezone.utc) + timedelta(
-            minutes=jwt_gen.config.password_reset_token_expiry_minutes
-        )
-        add_to_blacklist(db, user.password_reset_jti, old_expires_at)
+    if user.password_reset_jti is not None and user.password_reset_jti_expires_at is not None:
+        add_to_blacklist(db, user.password_reset_jti, user.password_reset_jti_expires_at)
 
-    set_password_reset_jti(db, user, new_jti)
+    set_password_reset_jti(db, user, new_jti, new_expires_at)
 
 
 def send_verification_email_for_user(user_id: str, email: str) -> None:
@@ -139,8 +142,9 @@ def resend_verification_email(db: Session, email: str) -> None:
 
     try:
         send_verification_email_for_user(str(user.id), user.email)
-    except http_requests.RequestException:
-        return
+    except http_requests.RequestException as exc:
+        logger.error("Failed to send verification email: %s", exc)
+        raise HTTPException(status_code=503, detail="Unable to send email. Please try again later.")
 
 
 def verify_email_token(db: Session, token: str) -> None:
@@ -162,7 +166,7 @@ def verify_email_token(db: Session, token: str) -> None:
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid verification token")
 
-    user = find_user_by_id(db, user_id)
+    user = find_user_by_id_for_update(db, user_id)
     if user is None:
         raise HTTPException(status_code=400, detail="User not found")
 
@@ -172,11 +176,7 @@ def verify_email_token(db: Session, token: str) -> None:
     exp = payload.get("exp")
     expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
     add_to_blacklist(db, jti, expires_at, commit=False)
-    try:
-        verify_user(db, user)
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=400, detail="Verification link has already been used")
+    verify_user(db, user)
 
 
 def reset_password(db: Session, token: str, new_password: str) -> None:
@@ -198,7 +198,7 @@ def reset_password(db: Session, token: str, new_password: str) -> None:
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid reset token")
 
-    user = find_user_by_id(db, user_id)
+    user = find_user_by_id_for_update(db, user_id)
     if user is None:
         raise HTTPException(status_code=400, detail="Invalid reset token")
 
@@ -207,12 +207,7 @@ def reset_password(db: Session, token: str, new_password: str) -> None:
 
     exp = payload.get("exp")
     expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
-    try:
-        add_to_blacklist(db, jti, expires_at)
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=400, detail="Reset link has already been used")
-
+    add_to_blacklist(db, jti, expires_at, commit=False)
     update_password(db, user, hash_password(new_password))
 
         

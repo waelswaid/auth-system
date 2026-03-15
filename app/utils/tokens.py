@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
+import uuid
 
 import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
@@ -42,6 +43,7 @@ class JWTUtility:
             "type": token_type,
             "iat": now, # issued at
             "exp": now + expires_delta,
+            "jti": str(uuid.uuid4()),  # unique token id, used for revocation
         }
 
         # add extra data to the payload if needed

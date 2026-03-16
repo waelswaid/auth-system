@@ -2,20 +2,16 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
 venv/
-
-
 .env
 *.log
 .DS_Store
 Thumbs.db
 .vscode/
-
-# database
 *.sqlite3
 *.db
 .claude/
 features/
 scripts/
 .pytest_cache
+.github/

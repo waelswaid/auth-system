@@ -18,6 +18,20 @@ class Settings(BaseSettings):
     PASSWORD_RESET_EXPIRE_MINUTES: int = 15
     EMAIL_VERIFICATION_EXPIRE_MINUTES: int = 1440
 
+    # Redis
+    REDIS_URL: str = "redis://localhost:6379/0"
+
+    # Rate limits (requests per hour)
+    RATE_LIMIT_LOGIN: int = 10
+    RATE_LIMIT_LOGIN_GLOBAL: int = 30
+    RATE_LIMIT_REGISTRATION: int = 5
+    RATE_LIMIT_FORGOT_PASSWORD: int = 5
+    RATE_LIMIT_RESET_PASSWORD: int = 10
+    RATE_LIMIT_RESEND_VERIFICATION: int = 5
+    RATE_LIMIT_REFRESH: int = 30
+    RATE_LIMIT_VERIFY_EMAIL: int = 10
+    RATE_LIMIT_VALIDATE_RESET_CODE: int = 10
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8"

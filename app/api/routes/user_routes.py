@@ -4,13 +4,14 @@ from sqlalchemy.orm import Session
 from app.schemas.users_schema import UserCreate, UserRead
 from app.services.user_services import user_create
 from app.api.dependencies.auth_dependency import get_current_user
+from app.api.dependencies.rate_limiter import registration_limiter
 from app.models.user import User
 
 
 user_router = APIRouter(tags=["users"])
 
 
-@user_router.post("/users/create", response_model=UserRead)
+@user_router.post("/users/create", response_model=UserRead, dependencies=[Depends(registration_limiter)])
 def signup(user: UserCreate, db: Session = Depends(get_db)):
     return user_create(db, user)
 

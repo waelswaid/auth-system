@@ -6,6 +6,7 @@ os.environ["JWT_SECRET_KEY"] = "test-secret-key"
 os.environ["MAILGUN_API_KEY"] = "test-key"
 os.environ["MAILGUN_DOMAIN"] = "test.mailgun.org"
 os.environ["MAILGUN_FROM_EMAIL"] = "test@test.mailgun.org"
+os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 
 import uuid
 from datetime import datetime, timezone
@@ -21,11 +22,6 @@ from app.database.session import get_db
 from app.main import app
 from app.models.user import User
 from app.utils.security.password_hash import hash_password
-from app.api.dependencies.rate_limiter import (
-    forgot_password_limiter,
-    resend_verification_limiter,
-    reset_password_limiter,
-)
 
 
 @pytest.fixture(scope="session")
@@ -59,6 +55,29 @@ def db_session(engine):
     connection.close()
 
 
+@pytest.fixture(autouse=True)
+def fake_redis(monkeypatch):
+    """Replace the real Redis client with fakeredis for every test."""
+    import fakeredis.aioredis
+    import app.core.redis as redis_module
+
+    fake = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    monkeypatch.setattr(redis_module, "_redis_client", fake)
+
+    # Prevent lifespan from overwriting the fake client
+    async def _noop():
+        pass
+
+    monkeypatch.setattr(redis_module, "init_redis", _noop)
+    monkeypatch.setattr(redis_module, "close_redis", _noop)
+
+    # Also patch the already-imported references in main
+    import app.main as main_module
+    monkeypatch.setattr(main_module, "init_redis", _noop)
+    monkeypatch.setattr(main_module, "close_redis", _noop)
+    yield fake
+
+
 @pytest.fixture()
 def client(db_session):
     def _override_get_db():
@@ -77,13 +96,6 @@ def mock_send_email():
         mock_response.raise_for_status = MagicMock()
         mock_post.return_value = mock_response
         yield mock_post
-
-
-@pytest.fixture(autouse=True)
-def reset_rate_limiters():
-    forgot_password_limiter._hits.clear()
-    resend_verification_limiter._hits.clear()
-    reset_password_limiter._hits.clear()
 
 
 @pytest.fixture()

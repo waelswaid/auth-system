@@ -3,6 +3,7 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.models.user import User
+from datetime import datetime, timezone
 import uuid
 from app.services.auth_services import jwt_gen
 from app.repositories.user_repository import find_user_by_id
@@ -36,5 +37,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = find_user_by_id(db, user_id)
     if user is None:
         raise credentials_error
+
+    # reject tokens issued before the last password change
+    iat = payload.get("iat")
+    if iat is not None and user.password_changed_at is not None:
+        token_issued_at = datetime.fromtimestamp(iat, tz=timezone.utc)
+        if token_issued_at < user.password_changed_at:
+            raise credentials_error
 
     return user

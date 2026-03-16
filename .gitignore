@@ -19,4 +19,6 @@ Thumbs.db
 .claude/
 features/
 scripts/
-
+reports/coverage_html/
+.coverage
+.pytest_cache

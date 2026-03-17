@@ -220,7 +220,7 @@ docker compose version
 
 ```bash
 cd ~
-git clone <your-repo-url> FastAPIapp
+git clone https://github.com/waelswaid/auth-system.git FastAPIapp
 cd FastAPIapp
 ```
 

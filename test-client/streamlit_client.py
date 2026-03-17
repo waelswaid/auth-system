@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 
-API_BASE = "http://localhost:8000"
+API_BASE = "http://51.21.181.6:8000"
 
 # --- Session state init ---
 if "access_token" not in st.session_state:

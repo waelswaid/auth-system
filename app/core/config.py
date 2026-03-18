@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_REFRESH: int = 30
     RATE_LIMIT_VERIFY_EMAIL: int = 10
     RATE_LIMIT_VALIDATE_RESET_CODE: int = 10
+    RATE_LIMIT_CHANGE_PASSWORD: int = 5
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, ConfigDict, Field
 from datetime import datetime
+from typing import Optional
 import uuid
 
 class UserBase(BaseModel):
@@ -17,9 +18,9 @@ class UserRead(UserBase):
     role: str
     created_at: datetime
 
-    
 
-
+class UserUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
 
 
 

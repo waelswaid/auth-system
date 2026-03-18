@@ -157,3 +157,7 @@ validate_reset_code_limiter = RateLimiter(
     name="validate_reset_code",
     max_requests=settings.RATE_LIMIT_VALIDATE_RESET_CODE,
 )
+change_password_limiter = RateLimiter(
+    name="change_password",
+    max_requests=settings.RATE_LIMIT_CHANGE_PASSWORD,
+)

@@ -3,18 +3,18 @@ from sqlalchemy.orm import Session
 from app.database.session import get_db
 from app.schemas.login_request import LoginRequest
 from app.schemas.token_response import TokenResponse
-from app.schemas.password_reset_schema import ForgotPasswordRequest, ResetPasswordRequest, VerifyEmailRequest
+from app.schemas.password_reset_schema import ForgotPasswordRequest, ResetPasswordRequest, VerifyEmailRequest, ChangePasswordRequest
 from app.services.auth_services import (
     user_login, refresh_access_token, logout, jwt_gen,
     request_password_reset, reset_password, verify_email_token, resend_verification_email,
-    verify_email_code, reset_password_via_code, validate_reset_code,
+    verify_email_code, reset_password_via_code, validate_reset_code, change_password,
 )
 from app.api.dependencies.auth_dependency import oauth2_scheme, get_current_user
 from app.models.user import User
 from app.api.dependencies.rate_limiter import (
     forgot_password_limiter, resend_verification_limiter, reset_password_limiter,
     login_limiter, login_global_limiter, refresh_limiter,
-    verify_email_limiter, validate_reset_code_limiter,
+    verify_email_limiter, validate_reset_code_limiter, change_password_limiter,
 )
 from app.core.config import settings
 from typing import Optional
@@ -98,3 +98,9 @@ def route_verify_email_via_link(code: str, db: Session = Depends(get_db)):
 def route_verify_email(body: VerifyEmailRequest, db: Session = Depends(get_db)):
     verify_email_token(db, body.token)
     return {"message": "Email verified successfully. You can now log in."}
+
+
+@auth_router.post("/change-password", status_code=200, dependencies=[Depends(change_password_limiter)])
+def route_change_password(body: ChangePasswordRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    change_password(db, current_user, body.current_password, body.new_password)
+    return {"message": "Password changed successfully."}

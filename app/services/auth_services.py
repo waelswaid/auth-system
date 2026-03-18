@@ -260,6 +260,13 @@ def reset_password_via_code(db: Session, code: str, new_password: str) -> None:
     update_password_via_code(db, user, hash_password(new_password))
 
 
+def change_password(db: Session, user: User, current_password: str, new_password: str) -> None:
+    if not verify_password(current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    update_password(db, user, hash_password(new_password))
+
+
 def validate_reset_code(db: Session, code: str) -> None:
     user = find_user_by_reset_code_for_update(db, code)
     if user is None:

@@ -104,6 +104,12 @@ def update_user_role(db: Session, user: User, new_role: str) -> None:
     db.commit()
 
 
+def update_user_profile(db: Session, user: User, name: Optional[str] = None) -> None:
+    if name is not None:
+        user.name = name
+    db.commit()
+
+
 def list_users(
     db: Session,
     role_filter: Optional[str] = None,

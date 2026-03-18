@@ -7,13 +7,16 @@ Use it as a standalone auth backend or as the foundation for your own applicatio
 ## Features
 
 - **JWT authentication** — access tokens (30 min) + refresh tokens (httponly cookie, 1 day)
+- **RBAC** — role-based access control (user/admin), role embedded in JWT and validate-token
 - **Email verification** — code-based and token-based flows via Mailgun
 - **Password reset** — secure reset flow with expiring codes
+- **Change password** — authenticated password change with token invalidation
+- **Profile update** — update name via PATCH /users/me
+- **Admin endpoints** — role management + user listing (admin-only)
 - **Rate limiting** — Redis sliding window counter (Lua script), per-IP and per-email
-- **Token revocation** — blacklist table + password-change invalidation
+- **Token revocation** — blacklist table + password/role-change invalidation
 - **Argon2id** password hashing
 - **Row-level locks** on verification and reset to prevent race conditions
-- **94% test coverage** — 77 tests against a real PostgreSQL database
 
 ## Tech Stack
 
@@ -69,6 +72,7 @@ uvicorn app.main:app --reload
 |--------|------|------|--------------|-------------|
 | POST | `/users/create` | No | 5/hr per IP | Register a new user |
 | GET | `/users/me` | Bearer | No | Get authenticated user profile |
+| PATCH | `/users/me` | Bearer | No | Update profile (name) |
 
 ### Auth (`/api/auth`)
 
@@ -77,21 +81,45 @@ uvicorn app.main:app --reload
 | POST | `/login` | No | 10/hr per IP+email, 30/hr per IP | Login, returns access + refresh tokens |
 | POST | `/refresh` | Cookie | 30/hr per IP | Refresh access token |
 | POST | `/logout` | Bearer | No | Revoke tokens and clear cookie |
+| POST | `/change-password` | Bearer | 5/hr per IP | Change password (requires current password) |
 | POST | `/forgot-password` | No | 5/hr per IP+email | Send password reset email |
 | GET | `/reset-password` | No | 10/hr per IP | Validate reset code from email |
 | POST | `/reset-password` | No | 10/hr per IP | Reset password with code or token |
 | POST | `/resend-verification` | No | 5/hr per IP+email | Resend verification email |
 | GET | `/verify-email` | No | 10/hr per IP | Verify email via code from email link |
 | POST | `/verify-email` | No | No | Verify email via JWT token |
+| GET | `/validate-token` | Bearer | No | Validate token and return user info (service-to-service) |
+
+### Admin (`/api/admin`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/users/` | Admin | List users (optional `?role=` filter, pagination) |
+| PATCH | `/users/{user_id}/role` | Admin | Change a user's role (`user` or `admin`) |
 
 ## Authentication Flow
 
 1. **Register** — `POST /api/users/create` creates account and sends verification email
 2. **Verify Email** — User clicks link in email (`GET /api/auth/verify-email?code=...`)
-3. **Login** — `POST /api/auth/login` returns access token + sets refresh cookie
+3. **Login** — `POST /api/auth/login` returns access token (with `role` claim) + sets refresh cookie
 4. **Access Protected Routes** — `Authorization: Bearer <access_token>` header
 5. **Refresh** — `POST /api/auth/refresh` exchanges refresh cookie for new access token
 6. **Logout** — `POST /api/auth/logout` blacklists tokens and clears cookie
+
+## RBAC
+
+Users have a `role` field (`user` by default, `admin` available). The role is:
+- Embedded in JWT claims at login — allows fast local checks
+- Returned by `GET /api/auth/validate-token` — authoritative live lookup for consumer services
+
+When a role changes, `role_changed_at` is set and all existing tokens for that user are invalidated (same pattern as password changes).
+
+**Bootstrap the first admin:**
+```bash
+python -m scripts.promote_admin admin@example.com
+# Or inside Docker:
+docker compose exec auth-service python -m scripts.promote_admin admin@example.com
+```
 
 ## Architecture
 
@@ -118,6 +146,7 @@ pytest tests/ --cov=app --cov-report=term-missing
 
 ## Documentation
 
+- [Microservice Architecture](docs/microservice-architecture.md) — how auth-system and nutrifit work together
 - [Rate Limiting](docs/redis-rate-limiting.md) — how the Redis sliding window counter works
 
 ## Contributing

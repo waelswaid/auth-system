@@ -5,6 +5,9 @@ from app.services.auth_services import send_verification_email_for_user
 from app.exceptions import DuplicateEmailError
 from fastapi import HTTPException
 import requests
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def user_create(db: Session, user: UserCreate):
@@ -12,6 +15,7 @@ def user_create(db: Session, user: UserCreate):
         new_user = user_repository.create_user(db=db, user_in=user)
     except DuplicateEmailError as e:
         raise HTTPException(status_code=409, detail=str(e))
+    logger.info("audit: event=registration user_id=%s email=%s", new_user.id, new_user.email)
     try:
         send_verification_email_for_user(db, new_user)
     except requests.RequestException:

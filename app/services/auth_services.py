@@ -37,14 +37,17 @@ jwt_gen = JWTUtility(jwt_config)
 def user_login(db: Session, login_data: LoginRequest) -> tuple[str, str]:
     user = find_user_by_email(db, login_data.email)
     if not user or not verify_password(login_data.password, user.password_hash):
+        logger.warning("audit: event=login_failed email=%s reason=invalid_credentials", login_data.email)
         raise HTTPException(status_code=401, detail="Invalid Credentials")
 
     if not user.is_verified:
+        logger.warning("audit: event=login_failed_unverified email=%s reason=email_not_verified", login_data.email)
         raise HTTPException(status_code=403, detail="Please verify your email before logging in.")
 
     role_claims = {"role": user.role}
     access_token = jwt_gen.create_access_token(str(user.id), additional_claims=role_claims)
     refresh_token = jwt_gen.create_refresh_token(str(user.id), additional_claims=role_claims)
+    logger.info("audit: event=login_success user_id=%s email=%s", user.id, user.email)
     return access_token, refresh_token
 
 
@@ -100,6 +103,7 @@ def logout(db: Session, token: str, refresh_token: str | None = None) -> None:
 
     expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
     add_to_blacklist(db, jti, expires_at)
+    logger.info("audit: event=logout user_id=%s", payload.get("sub"))
 
     if refresh_token is not None:
         try:
@@ -147,6 +151,7 @@ def request_password_reset(db: Session, email: str) -> None:
 
     set_password_reset_jti(db, user, new_jti, new_jti_expires_at)
     set_password_reset_code(db, user, code, expires_at)
+    logger.info("audit: event=password_reset_requested user_id=%s", user.id)
 
 
 def send_verification_email_for_user(db: Session, user: User) -> None:
@@ -201,6 +206,7 @@ def verify_email_token(db: Session, token: str) -> None:
     expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
     add_to_blacklist(db, jti, expires_at, commit=False)
     verify_user(db, user)
+    logger.info("audit: event=email_verified user_id=%s", user_id)
 
 
 def reset_password(db: Session, token: str, new_password: str) -> None:
@@ -233,6 +239,7 @@ def reset_password(db: Session, token: str, new_password: str) -> None:
     expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
     add_to_blacklist(db, jti, expires_at, commit=False)
     update_password(db, user, hash_password(new_password))
+    logger.info("audit: event=password_reset user_id=%s", user_id)
 
 
 def verify_email_code(db: Session, code: str) -> None:
@@ -247,6 +254,7 @@ def verify_email_code(db: Session, code: str) -> None:
         raise HTTPException(status_code=400, detail="Verification link has expired")
 
     verify_user(db, user)
+    logger.info("audit: event=email_verified user_id=%s", user.id)
 
 
 def reset_password_via_code(db: Session, code: str, new_password: str) -> None:
@@ -258,6 +266,7 @@ def reset_password_via_code(db: Session, code: str, new_password: str) -> None:
         raise HTTPException(status_code=400, detail="Reset link has expired")
 
     update_password_via_code(db, user, hash_password(new_password))
+    logger.info("audit: event=password_reset user_id=%s", user.id)
 
 
 def change_password(db: Session, user: User, current_password: str, new_password: str) -> None:
@@ -265,6 +274,7 @@ def change_password(db: Session, user: User, current_password: str, new_password
         raise HTTPException(status_code=400, detail="Current password is incorrect")
 
     update_password(db, user, hash_password(new_password))
+    logger.info("audit: event=password_changed user_id=%s", user.id)
 
 
 def validate_reset_code(db: Session, code: str) -> None:

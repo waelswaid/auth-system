@@ -3,7 +3,8 @@ from app.core.config import settings
 
 
 def send_password_reset_email(to_email: str, code: str) -> None:
-    reset_link = f"{settings.APP_BASE_URL}/api/auth/reset-password?code={code}"
+    base = settings.PASSWORD_RESET_URL or f"{settings.APP_BASE_URL}/api/auth/reset-password"
+    reset_link = f"{base}?code={code}"
 
     response = requests.post(
         f"{settings.MAILGUN_API_URL}/{settings.MAILGUN_DOMAIN}/messages",
@@ -25,7 +26,8 @@ def send_password_reset_email(to_email: str, code: str) -> None:
 
 
 def send_verification_email(to_email: str, code: str) -> None:
-    verification_link = f"{settings.APP_BASE_URL}/api/auth/verify-email?code={code}"
+    base = settings.EMAIL_VERIFY_URL or f"{settings.APP_BASE_URL}/api/auth/verify-email"
+    verification_link = f"{base}?code={code}"
 
     response = requests.post(
         f"{settings.MAILGUN_API_URL}/{settings.MAILGUN_DOMAIN}/messages",

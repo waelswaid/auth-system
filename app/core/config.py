@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # this tells pydantic to read the .env file and load the environment variables
@@ -16,6 +17,8 @@ class Settings(BaseSettings):
 
     # Password reset
     APP_BASE_URL: str = "http://localhost:8000"
+    PASSWORD_RESET_URL: Optional[str] = None
+    EMAIL_VERIFY_URL: Optional[str] = None
     PASSWORD_RESET_EXPIRE_MINUTES: int = 15
     EMAIL_VERIFICATION_EXPIRE_MINUTES: int = 1440
 

@@ -22,3 +22,4 @@ dist/
 build/
 *.egg-info/
 microservice-architecture.md
+docs/

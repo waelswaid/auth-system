@@ -91,20 +91,25 @@ def refresh_access_token(db: Session, refresh_token: str) -> TokenResponse:
 
 
 def logout(db: Session, token: str, refresh_token: str | None = None) -> None:
+    # Decode and validate the access token
     try:
         payload = jwt_gen.decode_access_token(token)
     except ValueError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+    # Extract the token's unique ID (jti) and expiry — both required for blacklisting
     jti = payload.get("jti")
     exp = payload.get("exp")
     if jti is None or exp is None:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+    # Blacklist the access token so it can't be reused after logout
     expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
     add_to_blacklist(db, jti, expires_at)
     logger.info("audit: event=logout user_id=%s", payload.get("sub"))
 
+    # Optionally blacklist the refresh token too, if the client sent it
+    # This prevents the user from getting new access tokens after logout
     if refresh_token is not None:
         try:
             rt_payload = jwt_gen.decode_refresh_token(refresh_token)
@@ -115,6 +120,7 @@ def logout(db: Session, token: str, refresh_token: str | None = None) -> None:
                 try:
                     add_to_blacklist(db, rt_jti, rt_expires_at)
                 except IntegrityError:
+                    # Already blacklisted (e.g. duplicate logout request) — safe to ignore
                     db.rollback()
         except ValueError:
             pass  # invalid refresh token — access token was already blacklisted, proceed

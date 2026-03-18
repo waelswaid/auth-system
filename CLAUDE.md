@@ -38,3 +38,9 @@
 - Do not create new files unless necessary — prefer extending existing ones
 - Do not add docstrings or comments to code you didn't change
 - Keep endpoints RESTful — resources are nouns, HTTP verbs express the action
+
+## Tests
+- Create tests for every new feature implemented that should be tested
+
+## Readme.md
+- Update readme.md when you're done if needed

@@ -24,6 +24,9 @@ class Settings(BaseSettings):
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_MAX_CONNECTIONS: int = 20
+    REDIS_SOCKET_TIMEOUT: int = 5
+    REDIS_CONNECT_TIMEOUT: int = 5
 
     # Rate limits (requests per hour)
     RATE_LIMIT_LOGIN: int = 10

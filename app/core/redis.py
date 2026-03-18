@@ -1,6 +1,7 @@
 import logging
 
 import redis.asyncio as aioredis
+from redis.exceptions import ConnectionError, RedisError, TimeoutError
 
 from app.core.config import settings
 
@@ -15,11 +16,19 @@ async def init_redis() -> None:
         _redis_client = aioredis.from_url(
             settings.REDIS_URL,
             decode_responses=True,
+            max_connections=settings.REDIS_MAX_CONNECTIONS,
+            socket_keepalive=True,
+            socket_connect_timeout=settings.REDIS_CONNECT_TIMEOUT,
+            socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
+            retry_on_timeout=True,
         )
         await _redis_client.ping()
         logger.info("Connected to Redis at %s", settings.REDIS_URL)
-    except Exception:
-        logger.warning("Could not connect to Redis — rate limiting disabled", exc_info=True)
+    except (ConnectionError, TimeoutError) as exc:
+        logger.warning("Could not connect to Redis — rate limiting disabled: %s", exc)
+        _redis_client = None
+    except RedisError as exc:
+        logger.error("Unexpected Redis error during init: %s", exc)
         _redis_client = None
 
 

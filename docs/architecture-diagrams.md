@@ -187,7 +187,12 @@ sequenceDiagram
     C->>A: POST /api/auth/refresh [cookie]
     A->>S: refresh_access_token()
     S->>S: decode refresh token
+    S->>R: find_user_by_id()
+    R->>DB: SELECT
+    DB-->>R: User
     S->>R: is_blacklisted(jti)
+    S->>S: check password_changed_at
+    S->>S: check role_changed_at
     S->>S: create new access_token
     S-->>A: new access_token
     A-->>C: 200 + new access_token
@@ -225,9 +230,14 @@ sequenceDiagram
     S->>R: find_user_by_email()
     R->>DB: SELECT
     DB-->>R: User (or null)
+    S->>S: skip if user not found or unverified
     S->>S: generate code + expiry
+    S->>S: create JWT reset token (with JTI)
+    S->>R: blacklist previous reset JTI (if exists)
+    S->>R: upsert_action(password_reset_jti)
     S->>R: upsert_action(password_reset_code)
     R->>DB: INSERT/UPDATE pending_actions
+    S-->>A: commit
     S->>M: send_password_reset_email(email, code)
     M-.->C: Email with reset link (?code=...)
     S-->>A: (always succeeds — no email leak)
@@ -250,8 +260,7 @@ sequenceDiagram
     R->>DB: SELECT ... FOR UPDATE
     S->>S: check expiry
     S->>R: update_password(new_hash)
-    S->>R: delete_action()
-    S->>R: delete_actions(password_reset_*)
+    S->>R: delete_actions_for_user(all reset actions)
     R->>DB: UPDATE + DELETE
     S-->>A: success
     A-->>C: 200 "Password reset successfully"
@@ -281,10 +290,10 @@ sequenceDiagram
     S->>R: create_user()
     R->>DB: INSERT (is_verified=false)
     S->>S: generate verification code + expiry
-    S->>R: upsert_action(email_verification_code)
-    R->>DB: INSERT pending_actions
     S->>M: send_verification_email(email, code)
     M-.->C: Email with verify link (?code=...)
+    S->>R: upsert_action(email_verification_code)
+    R->>DB: INSERT pending_actions
     A-->>C: 201 UserRead
 
     Note over C,M: Verify via Code (from email link)
@@ -292,16 +301,15 @@ sequenceDiagram
     A->>S: verify_email_code()
     S->>R: find_user_by_action_code_for_update()
     R->>DB: SELECT ... FOR UPDATE
+    S->>S: check already verified
     S->>S: check expiry
+    S->>R: delete_action(action)
+    R->>DB: DELETE
     S->>R: verify_user(user)
     R->>DB: UPDATE is_verified=true
-    S->>R: delete_actions(email_verification_*)
-    R->>DB: DELETE
+    S-->>A: commit
     A-->>C: 200 "Email verified"
 ```
-
-</details>
-
 
 </details>
 

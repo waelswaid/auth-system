@@ -1,6 +1,6 @@
 # Architecture Diagrams
 
-## 1. System Context
+## System Context
 
 High-level view of the auth-system and its external dependencies.
 
@@ -33,43 +33,8 @@ graph TB
 
 </details>
 
-## 2. Docker Deployment
 
-Container orchestration as defined in `docker-compose.example.yml`.
-
-<details>
-<summary>Show diagram</summary>
-
-```mermaid
-graph LR
-    subgraph Docker Compose
-        subgraph app ["app container"]
-            Entrypoint["entrypoint.sh
-            alembic upgrade head
-            uvicorn :8000"]
-        end
-
-        subgraph pg ["postgres:16-alpine"]
-            PG[("PostgreSQL
-            :5432")]
-        end
-
-        subgraph rd ["redis:7-alpine"]
-            Redis[("Redis
-            :6379")]
-        end
-    end
-
-    Host["Host :8000"] --> Entrypoint
-    Entrypoint -- "depends_on: healthy" --> PG
-    Entrypoint -- "depends_on: healthy" --> Redis
-
-    Volume[("pgdata volume")] -.- PG
-```
-
-</details>
-
-## 3. Application Layer Architecture
+## Application Layer Architecture
 
 The service layer pattern: routes → services → repositories → database.
 
@@ -139,45 +104,8 @@ graph TB
 
 </details>
 
-## 4. Middleware Pipeline
 
-Order of middleware processing for every incoming request.
-
-<details>
-<summary>Show diagram</summary>
-
-```mermaid
-graph LR
-    Request["Incoming
-    Request"] --> CORS
-
-    subgraph Middleware Stack
-        CORS["CORS
-        Middleware"] --> Logging["Request Logging
-        Middleware
-        (+ correlation ID)"] --> RateLimit["Rate Limit
-        Headers
-        Middleware"]
-    end
-
-    RateLimit --> Router["FastAPI
-    Router"]
-
-    Router --> RateLimiterDep["Rate Limiter
-    (dependency)"]
-    Router --> AuthDep["Auth
-    (dependency)"]
-    Router --> Handler["Route
-    Handler"]
-
-    Handler --> Response["Response
-    + X-Request-ID
-    + X-RateLimit-*"]
-```
-
-</details>
-
-## 5. Database Schema
+## Database Schema
 
 Entity-relationship diagram for all three models.
 
@@ -219,7 +147,7 @@ erDiagram
 
 </details>
 
-## 6. Authentication & Token Flow
+## Authentication & Token Flow
 
 Login, token refresh, and logout sequence.
 
@@ -275,7 +203,7 @@ sequenceDiagram
 
 </details>
 
-## 7. Password Reset Flow
+## Password Reset Flow
 
 Forgot password → validate code → reset password.
 
@@ -331,7 +259,7 @@ sequenceDiagram
 
 </details>
 
-## 8. Email Verification Flow
+## Email Verification Flow
 
 Registration → verify via code or token.
 
@@ -374,52 +302,10 @@ sequenceDiagram
 
 </details>
 
-## 9. Rate Limiting Architecture
-
-Redis sliding window implementation.
-
-<details>
-<summary>Show diagram</summary>
-
-```mermaid
-graph TB
-    Request["Incoming Request"] --> Dep["RateLimiter
-    Dependency"]
-
-    Dep --> BuildKey["Build Key
-    {prefix}:{ip}:{email}"]
-    BuildKey --> Lua["Redis Lua Script
-    (atomic)"]
-
-    subgraph Redis ["Redis Sliding Window"]
-        Lua --> Window["ZSET per key
-        score = timestamp
-        member = request_id"]
-        Lua --> Cleanup["Remove entries
-        older than window"]
-        Lua --> Count["Weighted count:
-        prev_window × overlap +
-        current_window"]
-    end
-
-    Lua --> Decision{allowed?}
-    Decision -- "Yes" --> Handler["Route Handler"]
-    Decision -- "No" --> Reject["429 Too Many Requests"]
-
-    Handler --> MW["Rate Limit Headers MW"]
-    MW --> Response["Response
-    X-RateLimit-Limit
-    X-RateLimit-Remaining
-    X-RateLimit-Reset"]
-
-    Lua -. "Redis down" .-> Fallback["Fail Open
-    (allow request)"]
-    Fallback --> Handler
-```
 
 </details>
 
-## 10. Auth Dependency & RBAC
+## Auth Dependency & RBAC
 
 How `get_current_user` and `require_role` validate every authenticated request.
 

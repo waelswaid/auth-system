@@ -4,6 +4,9 @@
 
 High-level view of the auth-system and its external dependencies.
 
+<details>
+<summary>Show diagram</summary>
+
 ```mermaid
 graph TB
     Client["Client
@@ -28,9 +31,14 @@ graph TB
     Mailgun -. "Email" .-> Client
 ```
 
+</details>
+
 ## 2. Docker Deployment
 
 Container orchestration as defined in `docker-compose.example.yml`.
+
+<details>
+<summary>Show diagram</summary>
 
 ```mermaid
 graph LR
@@ -59,9 +67,14 @@ graph LR
     Volume[("pgdata volume")] -.- PG
 ```
 
+</details>
+
 ## 3. Application Layer Architecture
 
 The service layer pattern: routes → services → repositories → database.
+
+<details>
+<summary>Show diagram</summary>
 
 ```mermaid
 graph TB
@@ -124,9 +137,14 @@ graph TB
     RateLimiter --> Redis[("Redis")]
 ```
 
+</details>
+
 ## 4. Middleware Pipeline
 
 Order of middleware processing for every incoming request.
+
+<details>
+<summary>Show diagram</summary>
 
 ```mermaid
 graph LR
@@ -157,9 +175,14 @@ graph LR
     + X-RateLimit-*"]
 ```
 
+</details>
+
 ## 5. Database Schema
 
 Entity-relationship diagram for all three models.
+
+<details>
+<summary>Show diagram</summary>
 
 ```mermaid
 erDiagram
@@ -194,9 +217,14 @@ erDiagram
     users ||--o{ token_blacklist : "revoked tokens"
 ```
 
+</details>
+
 ## 6. Authentication & Token Flow
 
 Login, token refresh, and logout sequence.
+
+<details>
+<summary>Show diagram</summary>
 
 ```mermaid
 sequenceDiagram
@@ -245,9 +273,14 @@ sequenceDiagram
     A-->>C: 204 + clear cookie
 ```
 
+</details>
+
 ## 7. Password Reset Flow
 
 Forgot password → validate code → reset password.
+
+<details>
+<summary>Show diagram</summary>
 
 ```mermaid
 sequenceDiagram
@@ -296,9 +329,14 @@ sequenceDiagram
     A-->>C: 200 "Password reset successfully"
 ```
 
+</details>
+
 ## 8. Email Verification Flow
 
 Registration → verify via code or token.
+
+<details>
+<summary>Show diagram</summary>
 
 ```mermaid
 sequenceDiagram
@@ -334,9 +372,14 @@ sequenceDiagram
     A-->>C: 200 "Email verified"
 ```
 
+</details>
+
 ## 9. Rate Limiting Architecture
 
 Redis sliding window implementation.
+
+<details>
+<summary>Show diagram</summary>
 
 ```mermaid
 graph TB
@@ -374,9 +417,14 @@ graph TB
     Fallback --> Handler
 ```
 
+</details>
+
 ## 10. Auth Dependency & RBAC
 
 How `get_current_user` and `require_role` validate every authenticated request.
+
+<details>
+<summary>Show diagram</summary>
 
 ```mermaid
 flowchart TB
@@ -416,3 +464,5 @@ flowchart TB
     RoleMatch -- "no" --> R403["403 Forbidden"]
     RoleMatch -- "yes" --> Allow
 ```
+
+</details>

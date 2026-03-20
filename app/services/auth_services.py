@@ -7,7 +7,7 @@ from app.repositories.pending_action_repository import (
     find_user_by_action_code_for_update, delete_action,
     delete_actions_for_user,
 )
-from app.repositories.token_blacklist_repository import add_to_blacklist, is_blacklisted
+from app.repositories.token_blacklist_repository import add_to_blacklist, is_blacklisted  # async
 from app.utils.security.password_hash import verify_password, hash_password
 from app.utils.tokens import JWTConfig, JWTUtility
 from app.utils.email import send_password_reset_email, send_verification_email
@@ -17,7 +17,7 @@ from app.schemas.login_request import LoginRequest
 from app.models.user import User
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
+
 from datetime import datetime, timezone, timedelta
 import uuid
 import logging
@@ -65,7 +65,7 @@ def user_login(db: Session, login_data: LoginRequest) -> tuple[str, str]:
     return access_token, refresh_token
 
 
-def refresh_access_token(db: Session, refresh_token: str) -> TokenResponse:
+async def refresh_access_token(db: Session, refresh_token: str) -> TokenResponse:
     try:
         payload = jwt_gen.decode_refresh_token(refresh_token)
     except ValueError:
@@ -85,7 +85,7 @@ def refresh_access_token(db: Session, refresh_token: str) -> TokenResponse:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
     jti = payload.get("jti")
-    if jti is None or is_blacklisted(db, jti):
+    if jti is None or await is_blacklisted(jti):
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
     iat = payload.get("iat")
@@ -102,7 +102,7 @@ def refresh_access_token(db: Session, refresh_token: str) -> TokenResponse:
     return TokenResponse(access_token=access_token, token_type="bearer")
 
 
-def logout(db: Session, token: str, refresh_token: str | None = None) -> None:
+async def logout(token: str, refresh_token: str | None = None) -> None:
     try:
         payload = jwt_gen.decode_access_token(token)
     except ValueError:
@@ -114,7 +114,7 @@ def logout(db: Session, token: str, refresh_token: str | None = None) -> None:
         raise HTTPException(status_code=401, detail="Invalid token")
 
     expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
-    add_to_blacklist(db, jti, expires_at)
+    await add_to_blacklist(jti, expires_at)
     logger.info("audit: event=logout user_id=%s", payload.get("sub"))
 
     if refresh_token is not None:
@@ -124,15 +124,12 @@ def logout(db: Session, token: str, refresh_token: str | None = None) -> None:
             rt_exp = rt_payload.get("exp")
             if rt_jti is not None and rt_exp is not None:
                 rt_expires_at = datetime.fromtimestamp(rt_exp, tz=timezone.utc)
-                try:
-                    add_to_blacklist(db, rt_jti, rt_expires_at)
-                except IntegrityError:
-                    db.rollback()
+                await add_to_blacklist(rt_jti, rt_expires_at)
         except ValueError:
             pass
 
 
-def request_password_reset(db: Session, email: str) -> None:
+async def request_password_reset(db: Session, email: str) -> None:
     user = find_user_by_email(db, email)
     if user is None or not user.is_verified:
         return
@@ -150,7 +147,7 @@ def request_password_reset(db: Session, email: str) -> None:
     # blacklist the previous pending reset token if one exists
     prev_jti_action = find_action_by_user_and_type(db, user.id, ACTION_PASSWORD_RESET_JTI)
     if prev_jti_action is not None:
-        add_to_blacklist(db, prev_jti_action.code, prev_jti_action.expires_at, commit=False)
+        await add_to_blacklist(prev_jti_action.code, prev_jti_action.expires_at)
 
     upsert_action(db, user.id, ACTION_PASSWORD_RESET_JTI, new_jti, new_jti_expires_at, commit=False)
     upsert_action(db, user.id, ACTION_PASSWORD_RESET_CODE, code, expires_at, commit=False)
@@ -186,14 +183,14 @@ def resend_verification_email(db: Session, email: str) -> None:
         raise HTTPException(status_code=503, detail="Unable to send email. Please try again later.")
 
 
-def verify_email_token(db: Session, token: str) -> None:
+async def verify_email_token(db: Session, token: str) -> None:
     try:
         payload = jwt_gen.decode_email_verification_token(token)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid or expired verification token")
 
     jti = payload.get("jti")
-    if jti is None or is_blacklisted(db, jti):
+    if jti is None or await is_blacklisted(jti):
         raise HTTPException(status_code=400, detail="Verification link has already been used")
 
     sub = payload.get("sub")
@@ -214,20 +211,20 @@ def verify_email_token(db: Session, token: str) -> None:
 
     exp = payload.get("exp")
     expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
-    add_to_blacklist(db, jti, expires_at, commit=False)
+    await add_to_blacklist(jti, expires_at)
     verify_user(db, user, commit=False)
     db.commit()
     logger.info("audit: event=email_verified user_id=%s email=%s", user_id, user.email)
 
 
-def reset_password(db: Session, token: str, new_password: str) -> None:
+async def reset_password(db: Session, token: str, new_password: str) -> None:
     try:
         payload = jwt_gen.decode_password_reset_token(token)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
 
     jti = payload.get("jti")
-    if jti is None or is_blacklisted(db, jti):
+    if jti is None or await is_blacklisted(jti):
         raise HTTPException(status_code=400, detail="Reset link has already been used")
 
     sub = payload.get("sub")
@@ -250,7 +247,7 @@ def reset_password(db: Session, token: str, new_password: str) -> None:
 
     exp = payload.get("exp")
     expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
-    add_to_blacklist(db, jti, expires_at, commit=False)
+    await add_to_blacklist(jti, expires_at)
     update_password(db, user, hash_password(new_password), commit=False)
     delete_actions_for_user(db, user.id, ALL_RESET_ACTIONS, commit=False)
     db.commit()

@@ -17,7 +17,6 @@ from app.api.routes.auth_routes import auth_router
 from app.api.routes.admin_routes import admin_router
 from app.api.routes.health_routes import health_router
 from app.database.session import SessionLocal
-from app.repositories.token_blacklist_repository import cleanup_expired_tokens
 from app.repositories.pending_action_repository import cleanup_expired_actions
 from app.core.redis import init_redis, close_redis
 
@@ -26,7 +25,6 @@ from app.core.redis import init_redis, close_redis
 async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
-        cleanup_expired_tokens(db)
         cleanup_expired_actions(db)
     finally:
         db.close()

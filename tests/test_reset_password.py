@@ -1,6 +1,5 @@
 from datetime import datetime, timezone, timedelta
 
-from app.models.token_blacklist import TokenBlacklist
 from app.models.pending_action import PendingAction
 from app.services.auth_services import jwt_gen, ACTION_PASSWORD_RESET_CODE, ACTION_PASSWORD_RESET_JTI
 
@@ -134,7 +133,7 @@ def test_reset_password_via_token_expired(client, verified_user, db_session):
 
 
 # Reset JWT whose JTI is in the blacklist returns 400
-def test_reset_password_via_token_blacklisted(client, verified_user, db_session):
+def test_reset_password_via_token_blacklisted(client, verified_user, db_session, fake_redis):
     user, _ = verified_user
     token = jwt_gen.create_password_reset_token(str(user.id))
     payload = jwt_gen.decode_password_reset_token(token)
@@ -148,10 +147,8 @@ def test_reset_password_via_token_blacklisted(client, verified_user, db_session)
     ))
     db_session.flush()
 
-    db_session.add(
-        TokenBlacklist(jti=jti, expires_at=datetime.now(timezone.utc) + timedelta(hours=1))
-    )
-    db_session.flush()
+    import asyncio
+    asyncio.run(fake_redis.setex(f"blacklist:{jti}", 3600, "1"))
 
     resp = client.post(
         "/api/auth/reset-password",

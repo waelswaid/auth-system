@@ -14,7 +14,7 @@ from app.repositories.token_blacklist_repository import is_blacklisted
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     credentials_error = HTTPException(status_code=401, detail="Invalid credentials")
 
     try:
@@ -23,7 +23,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_error
 
     jti = payload.get("jti")
-    if jti is None or is_blacklisted(db, jti):
+    if jti is None or await is_blacklisted(jti):
         raise credentials_error
 
     sub = payload.get("sub")

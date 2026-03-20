@@ -1,6 +1,5 @@
 from datetime import datetime, timezone, timedelta
 
-from app.models.token_blacklist import TokenBlacklist
 from app.models.pending_action import PendingAction
 from app.services.auth_services import jwt_gen, ACTION_EMAIL_VERIFICATION_CODE
 
@@ -101,18 +100,13 @@ def test_verify_via_token_already_verified(client, verified_user, db_session):
 
 
 # Verification JWT whose JTI is blacklisted returns 400
-def test_verify_via_token_blacklisted_jti(client, unverified_user, db_session):
+def test_verify_via_token_blacklisted_jti(client, unverified_user, fake_redis):
     user, _ = unverified_user
     token = jwt_gen.create_email_verification_token(str(user.id))
     payload = jwt_gen.decode_email_verification_token(token)
 
-    db_session.add(
-        TokenBlacklist(
-            jti=payload["jti"],
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
-        )
-    )
-    db_session.flush()
+    import asyncio
+    asyncio.run(fake_redis.setex(f"blacklist:{payload['jti']}", 3600, "1"))
 
     resp = client.post("/api/auth/verify-email", json={"token": token})
     assert resp.status_code == 400

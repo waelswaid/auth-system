@@ -1,6 +1,5 @@
 from datetime import datetime, timezone, timedelta
 
-from app.models.token_blacklist import TokenBlacklist
 from app.services.auth_services import jwt_gen
 
 
@@ -32,7 +31,7 @@ def test_refresh_invalid_token(client):
 
 
 # Blacklisted refresh token JTI returns 401
-def test_refresh_blacklisted_token(client, verified_user, db_session):
+def test_refresh_blacklisted_token(client, verified_user, fake_redis):
     user, password = verified_user
     login_resp = client.post(
         "/api/auth/login",
@@ -44,10 +43,8 @@ def test_refresh_blacklisted_token(client, verified_user, db_session):
     payload = jwt_gen.decode_refresh_token(refresh_token)
     jti = payload["jti"]
 
-    db_session.add(
-        TokenBlacklist(jti=jti, expires_at=datetime.now(timezone.utc) + timedelta(hours=1))
-    )
-    db_session.flush()
+    import asyncio
+    asyncio.run(fake_redis.setex(f"blacklist:{jti}", 3600, "1"))
 
     resp = client.post("/api/auth/refresh")
     assert resp.status_code == 401

@@ -1,6 +1,5 @@
 from datetime import datetime, timezone, timedelta
 
-from app.models.token_blacklist import TokenBlacklist
 from app.services.auth_services import jwt_gen
 
 
@@ -34,16 +33,11 @@ def test_get_me_invalid_token(client):
 
 
 # Access token with blacklisted JTI returns 401
-def test_get_me_blacklisted_token(auth_client, db_session):
+def test_get_me_blacklisted_token(auth_client, fake_redis):
     client, access_token, user = auth_client
     payload = jwt_gen.decode_access_token(access_token)
-    db_session.add(
-        TokenBlacklist(
-            jti=payload["jti"],
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
-        )
-    )
-    db_session.flush()
+    import asyncio
+    asyncio.run(fake_redis.setex(f"blacklist:{payload['jti']}", 3600, "1"))
 
     resp = client.get(
         "/api/users/me",

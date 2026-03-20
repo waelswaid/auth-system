@@ -1,22 +1,39 @@
+import logging
 from datetime import datetime, timezone
 
-from sqlalchemy.orm import Session
+from redis.exceptions import RedisError
 
-from app.models.token_blacklist import TokenBlacklist
+from app.core.redis import get_redis
 
+logger = logging.getLogger(__name__)
 
-def add_to_blacklist(db: Session, jti: str, expires_at: datetime, commit: bool = True) -> None:
-    db.add(TokenBlacklist(jti=jti, expires_at=expires_at))
-    if commit:
-        db.commit()
+BLACKLIST_PREFIX = "blacklist:"
 
 
-def is_blacklisted(db: Session, jti: str) -> bool:
-    return db.query(TokenBlacklist).filter(TokenBlacklist.jti == jti).first() is not None
+async def add_to_blacklist(jti: str, expires_at: datetime) -> None:
+    r = get_redis()
+    if r is None:
+        logger.warning("Redis unavailable — could not blacklist jti=%s", jti)
+        return
+
+    ttl = int((expires_at - datetime.now(timezone.utc)).total_seconds())
+    if ttl <= 0:
+        return
+
+    try:
+        await r.setex(f"{BLACKLIST_PREFIX}{jti}", ttl, "1")
+    except RedisError:
+        logger.warning("Redis error while blacklisting jti=%s — failing open", jti, exc_info=True)
 
 
-def cleanup_expired_tokens(db: Session) -> None:
-    db.query(TokenBlacklist).filter(
-        TokenBlacklist.expires_at < datetime.now(timezone.utc)
-    ).delete()
-    db.commit()
+async def is_blacklisted(jti: str) -> bool:
+    r = get_redis()
+    if r is None:
+        logger.warning("Redis unavailable — blacklist check skipped for jti=%s", jti)
+        return False
+
+    try:
+        return await r.exists(f"{BLACKLIST_PREFIX}{jti}") > 0
+    except RedisError:
+        logger.warning("Redis error during blacklist check — failing open", exc_info=True)
+        return False

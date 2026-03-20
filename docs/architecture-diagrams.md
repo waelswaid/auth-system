@@ -26,7 +26,7 @@ graph TB
 
     Client -- "HTTP/REST" --> App
     App -- "SQLAlchemy" --> PG
-    App -- "aioredis" --> Redis
+    App -- "redis.asyncio" --> Redis
     App -- "HTTP POST" --> Mailgun
     Mailgun -. "Email" .-> Client
 ```
@@ -50,7 +50,7 @@ graph TB
         UserRoutes["user_routes.py
         /api/users/*"]
         AdminRoutes["admin_routes.py
-        /api/admin/*"]
+        /api/admin/users/*"]
         HealthRoutes["health_routes.py
         /health"]
     end
@@ -142,7 +142,6 @@ erDiagram
     }
 
     users ||--o{ pending_actions : "has"
-    users ||--o{ token_blacklist : "revoked tokens"
 ```
 
 </details>

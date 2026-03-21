@@ -21,6 +21,10 @@ from app.repositories.pending_action_repository import cleanup_expired_actions
 from app.core.redis import init_redis, close_redis
 
 
+"""
+@asynccontextmanager: Code before yield → runs at startup, Code after yield → runs at shutdown
+"""
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db = SessionLocal()
@@ -29,7 +33,7 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
     await init_redis()
-    yield
+    yield 
     await close_redis()
 
 

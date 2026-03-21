@@ -39,6 +39,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     if user is None:
         raise credentials_error
 
+    if user.is_disabled:
+        raise credentials_error
+
     # reject tokens issued before the last password change
     iat = payload.get("iat")
     if iat is not None and user.password_changed_at is not None:

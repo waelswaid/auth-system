@@ -52,3 +52,27 @@ def send_verification_email(to_email: str, code: str) -> None:
     )
     response.raise_for_status()
     logger.info("Verification email sent to=%s", to_email)
+
+
+def send_invite_email(to_email: str, code: str) -> None:
+    base = settings.INVITE_URL or f"{settings.APP_BASE_URL}/api/auth/accept-invite"
+    invite_link = f"{base}?code={code}"
+
+    response = requests.post(
+        f"{settings.MAILGUN_API_URL}/{settings.MAILGUN_DOMAIN}/messages",
+        auth=("api", settings.MAILGUN_API_KEY),
+        data={
+            "from": settings.MAILGUN_FROM_EMAIL,
+            "to": to_email,
+            "subject": "You've been invited",
+            "text": (
+                f"You have been invited to create an account.\n\n"
+                f"Click the link below to set up your account. "
+                f"This link expires in {settings.INVITE_EXPIRE_MINUTES // 60} hours.\n\n"
+                f"{invite_link}\n\n"
+                f"If you were not expecting this invitation, you can safely ignore this email."
+            ),
+        },
+    )
+    response.raise_for_status()
+    logger.info("Invite email sent to=%s", to_email)

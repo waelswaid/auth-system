@@ -1,6 +1,6 @@
 from app.repositories.user_repository import (
     find_user_by_email, find_user_by_id, find_user_by_id_for_update,
-    update_password, verify_user,
+    update_password, verify_user, set_invited_user_profile,
 )
 from app.repositories.pending_action_repository import (
     upsert_action, find_action_by_user_and_type,
@@ -52,6 +52,10 @@ def user_login(db: Session, login_data: LoginRequest) -> tuple[str, str]:
         raise HTTPException(status_code=401, detail="Invalid Credentials")
     if not verify_password(login_data.password, user.password_hash):
         logger.warning("audit: event=login_failed email=%s reason=invalid_credentials", login_data.email)
+        raise HTTPException(status_code=401, detail="Invalid Credentials")
+
+    if user.is_disabled:
+        logger.warning("audit: event=login_failed_disabled email=%s reason=account_disabled", login_data.email)
         raise HTTPException(status_code=401, detail="Invalid Credentials")
 
     if not user.is_verified:
@@ -301,6 +305,28 @@ def change_password(db: Session, user: User, current_password: str, new_password
     delete_actions_for_user(db, user.id, ALL_RESET_ACTIONS, commit=False)
     db.commit()
     logger.info("audit: event=password_changed user_id=%s email=%s", user.id, user.email)
+
+
+ACTION_INVITE = "invite"
+
+
+def accept_invite(db: Session, code: str, first_name: str, last_name: str, password: str) -> None:
+    result = find_user_by_action_code_for_update(db, code, ACTION_INVITE)
+    if result is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired invite code")
+
+    action, user = result
+
+    if action.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Invalid or expired invite code")
+
+    if user.is_verified:
+        raise HTTPException(status_code=400, detail="Invite has already been accepted")
+
+    set_invited_user_profile(db, user, first_name, last_name, hash_password(password), commit=False)
+    delete_action(db, action, commit=False)
+    db.commit()
+    logger.info("audit: event=invite_accepted user_id=%s email=%s", user.id, user.email)
 
 
 def validate_reset_code(db: Session, code: str) -> None:

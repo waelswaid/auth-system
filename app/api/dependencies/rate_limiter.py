@@ -293,4 +293,17 @@ delete_account_limiter = RateLimiter(
     max_requests=settings.RATE_LIMIT_DELETE_ACCOUNT,
 )
 
+force_reset_limiter = RateLimiter(
+    name="force_reset",
+    max_requests=settings.RATE_LIMIT_FORCE_RESET,
+)
+invite_user_limiter = RateLimiter(
+    name="invite_user",
+    max_requests=settings.RATE_LIMIT_INVITE,
+)
+accept_invite_limiter = RateLimiter(
+    name="accept_invite",
+    max_requests=settings.RATE_LIMIT_ACCEPT_INVITE,
+)
+
 lockout_limiter = AccountLockout()

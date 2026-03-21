@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     RATE_LIMIT_VALIDATE_RESET_CODE: int = 10
     RATE_LIMIT_CHANGE_PASSWORD: int = 5
     RATE_LIMIT_DELETE_ACCOUNT: int = 5
+    RATE_LIMIT_FORCE_RESET: int = 20
+    RATE_LIMIT_INVITE: int = 20
+    RATE_LIMIT_ACCEPT_INVITE: int = 10
+
+    # Invite
+    INVITE_URL: Optional[str] = None
+    INVITE_EXPIRE_MINUTES: int = 4320  # 3 days
 
     # lockout limits
     MAX_ATTEMPTS_UNTILL_LOCKOUT: int = 10

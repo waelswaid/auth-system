@@ -46,3 +46,8 @@ class User(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    is_disabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        server_default=text("false"),
+    )

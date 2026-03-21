@@ -8,14 +8,16 @@ from app.services.auth_services import (
     user_login, refresh_access_token, logout, jwt_gen,
     request_password_reset, reset_password, verify_email_token, resend_verification_email,
     verify_email_code, reset_password_via_code, validate_reset_code, change_password,
+    accept_invite,
 )
+from app.schemas.admin_schema import AcceptInviteRequest
 from app.api.dependencies.auth_dependency import oauth2_scheme, get_current_user
 from app.models.user import User
 from app.api.dependencies.rate_limiter import (
     forgot_password_limiter, resend_verification_limiter, reset_password_limiter,
     login_limiter, login_global_limiter, refresh_limiter,
     verify_email_limiter, validate_reset_code_limiter, change_password_limiter,
-    lockout_limiter,
+    lockout_limiter, accept_invite_limiter,
 )
 from app.core.config import settings
 from typing import Optional
@@ -123,3 +125,9 @@ async def route_verify_email(body: VerifyEmailRequest, db: Session = Depends(get
 async def route_change_password(body: ChangePasswordRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     change_password(db, current_user, body.current_password, body.new_password)
     return {"message": "Password changed successfully."}
+
+
+@auth_router.post("/accept-invite", status_code=200, dependencies=[Depends(accept_invite_limiter)])
+def route_accept_invite(body: AcceptInviteRequest, db: Session = Depends(get_db)):
+    accept_invite(db, body.code, body.first_name, body.last_name, body.password)
+    return {"message": "Account activated. You can now log in."}

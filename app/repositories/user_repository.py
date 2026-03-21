@@ -77,6 +77,43 @@ def delete_user(db: Session, user: User, commit: bool = True) -> None:
         db.flush()
 
 
+def create_invited_user(db: Session, email: str) -> User:
+    user = User(
+        first_name="",
+        last_name="",
+        email=email,
+        password_hash="!invited",
+        is_verified=False,
+    )
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise DuplicateEmailError("A user with that email already exists.")
+    db.refresh(user)
+    return user
+
+
+def set_invited_user_profile(
+    db: Session, user: User, first_name: str, last_name: str, password_hash: str, commit: bool = True,
+) -> None:
+    user.first_name = first_name
+    user.last_name = last_name
+    user.password_hash = password_hash
+    user.is_verified = True
+    user.password_changed_at = datetime.now(timezone.utc)
+    if commit:
+        db.commit()
+    else:
+        db.flush()
+
+
+def update_user_disabled_status(db: Session, user: User, is_disabled: bool) -> None:
+    user.is_disabled = is_disabled
+    db.commit()
+
+
 def list_users(
     db: Session,
     role_filter: Optional[str] = None,

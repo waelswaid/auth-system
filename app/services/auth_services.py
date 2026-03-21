@@ -56,7 +56,7 @@ def user_login(db: Session, login_data: LoginRequest) -> tuple[str, str]:
 
     if user.is_disabled:
         logger.warning("audit: event=login_failed_disabled email=%s reason=account_disabled", login_data.email)
-        raise HTTPException(status_code=401, detail="Invalid Credentials")
+        raise HTTPException(status_code=403, detail="Your account has been disabled. Contact an administrator.")
 
     if not user.is_verified:
         logger.warning("audit: event=login_failed_unverified email=%s reason=email_not_verified", login_data.email)
@@ -310,7 +310,7 @@ def change_password(db: Session, user: User, current_password: str, new_password
 ACTION_INVITE = "invite"
 
 
-def accept_invite(db: Session, code: str, first_name: str, last_name: str, password: str) -> None:
+def _get_valid_invite(db: Session, code: str):
     result = find_user_by_action_code_for_update(db, code, ACTION_INVITE)
     if result is None:
         raise HTTPException(status_code=400, detail="Invalid or expired invite code")
@@ -323,6 +323,15 @@ def accept_invite(db: Session, code: str, first_name: str, last_name: str, passw
     if user.is_verified:
         raise HTTPException(status_code=400, detail="Invite has already been accepted")
 
+    return action, user
+
+
+def validate_invite_code(db: Session, code: str) -> None:
+    _get_valid_invite(db, code)
+
+
+def accept_invite(db: Session, code: str, first_name: str, last_name: str, password: str) -> None:
+    action, user = _get_valid_invite(db, code)
     set_invited_user_profile(db, user, first_name, last_name, hash_password(password), commit=False)
     delete_action(db, action, commit=False)
     db.commit()

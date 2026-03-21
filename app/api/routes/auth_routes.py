@@ -8,7 +8,7 @@ from app.services.auth_services import (
     user_login, refresh_access_token, logout, jwt_gen,
     request_password_reset, reset_password, verify_email_token, resend_verification_email,
     verify_email_code, reset_password_via_code, validate_reset_code, change_password,
-    accept_invite,
+    accept_invite, validate_invite_code,
 )
 from app.schemas.admin_schema import AcceptInviteRequest
 from app.api.dependencies.auth_dependency import oauth2_scheme, get_current_user
@@ -125,6 +125,12 @@ async def route_verify_email(body: VerifyEmailRequest, db: Session = Depends(get
 async def route_change_password(body: ChangePasswordRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     change_password(db, current_user, body.current_password, body.new_password)
     return {"message": "Password changed successfully."}
+
+
+@auth_router.get("/accept-invite", status_code=200, dependencies=[Depends(accept_invite_limiter)])
+def route_validate_invite_code(code: str, db: Session = Depends(get_db)):
+    validate_invite_code(db, code)
+    return {"message": "Invite code is valid.", "code": code}
 
 
 @auth_router.post("/accept-invite", status_code=200, dependencies=[Depends(accept_invite_limiter)])

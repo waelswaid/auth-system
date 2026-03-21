@@ -49,8 +49,8 @@ def test_disabled_user_cannot_login(client, create_test_user):
     )
 
     resp = _login(client, target.email, target_pass)
-    assert resp.status_code == 401
-    assert resp.json()["detail"] == "Invalid Credentials"
+    assert resp.status_code == 403
+    assert "disabled" in resp.json()["detail"].lower()
 
 
 def test_disabled_user_tokens_rejected(client, create_test_user):
@@ -466,3 +466,72 @@ def test_invited_user_cannot_login_before_accepting(client, create_test_user, mo
 
     resp = _login(client, "nologin@example.com", "anypassword123")
     assert resp.status_code == 401
+
+
+# =====================================================================
+# Validate invite code (GET)
+# =====================================================================
+
+
+def test_validate_invite_code_success(client, create_test_user, mock_send_email):
+    _, _, admin_token = _make_admin(client, create_test_user)
+
+    client.post(
+        "/api/admin/users/invite",
+        json={"email": "validate@example.com"},
+        headers=_auth_header(admin_token),
+    )
+    code = _extract_invite_code(mock_send_email)
+
+    resp = client.get(f"/api/auth/accept-invite?code={code}")
+    assert resp.status_code == 200
+    assert resp.json()["code"] == code
+
+
+def test_validate_invite_code_invalid_returns_400(client):
+    resp = client.get(f"/api/auth/accept-invite?code=00000000-0000-0000-0000-000000000000")
+    assert resp.status_code == 400
+
+
+def test_validate_invite_code_expired_returns_400(client, create_test_user, mock_send_email, db_session):
+    _, _, admin_token = _make_admin(client, create_test_user)
+
+    client.post(
+        "/api/admin/users/invite",
+        json={"email": "expvalidate@example.com"},
+        headers=_auth_header(admin_token),
+    )
+    code = _extract_invite_code(mock_send_email)
+
+    from app.models.pending_action import PendingAction
+    from datetime import datetime, timezone, timedelta
+    action = db_session.query(PendingAction).filter(PendingAction.code == code).first()
+    action.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    db_session.flush()
+
+    resp = client.get(f"/api/auth/accept-invite?code={code}")
+    assert resp.status_code == 400
+
+
+def test_validate_invite_code_already_accepted_returns_400(client, create_test_user, mock_send_email):
+    _, _, admin_token = _make_admin(client, create_test_user)
+
+    client.post(
+        "/api/admin/users/invite",
+        json={"email": "acceptedvalidate@example.com"},
+        headers=_auth_header(admin_token),
+    )
+    code = _extract_invite_code(mock_send_email)
+
+    client.post(
+        "/api/auth/accept-invite",
+        json={
+            "code": code,
+            "first_name": "Test",
+            "last_name": "User",
+            "password": "testpass123",
+        },
+    )
+
+    resp = client.get(f"/api/auth/accept-invite?code={code}")
+    assert resp.status_code == 400

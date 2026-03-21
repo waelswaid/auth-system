@@ -58,3 +58,5 @@ jobs:
 
       - name: Run tests
         run: pytest tests/ -v --cov=app
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fastapiapp_test

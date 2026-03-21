@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_VALIDATE_RESET_CODE: int = 10
     RATE_LIMIT_CHANGE_PASSWORD: int = 5
 
+    # lockout limits
+    MAX_ATTEMPTS_UNTILL_LOCKOUT: int = 10
+    LOCKOUT_TIME_SECONDS: int = 900
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8"

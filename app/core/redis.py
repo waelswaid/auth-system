@@ -7,12 +7,15 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# declares a module-level variable
 _redis_client: aioredis.Redis | None = None
 
-
+# configs redis client and sets connection
 async def init_redis() -> None:
+    # global is needed to tell python this is not a local var it's module-level
     global _redis_client
     try:
+        # config redis client
         _redis_client = aioredis.from_url(
             settings.REDIS_URL,
             decode_responses=True,
@@ -22,6 +25,7 @@ async def init_redis() -> None:
             socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
             retry_on_timeout=True,
         )
+        # opens the TCP connection and verifies Redis is alive
         await _redis_client.ping()
         logger.info("Connected to Redis at %s", settings.REDIS_URL)
     except (ConnectionError, TimeoutError) as exc:
@@ -31,13 +35,13 @@ async def init_redis() -> None:
         logger.error("Unexpected Redis error during init: %s", exc)
         _redis_client = None
 
-
+# shuts connection
 async def close_redis() -> None:
     global _redis_client
     if _redis_client is not None:
         await _redis_client.close()
         _redis_client = None
 
-
+# returns redis client instance or None if connection fails
 def get_redis() -> aioredis.Redis | None:
     return _redis_client
